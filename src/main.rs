@@ -50,14 +50,65 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
     // Đánh giá loại bàn tay dựa trên kết quả kiểm tra
     match (is_flush, straight_high_card, four, three, pairs.len()) {
         (true, Some(14), _, _, _) => HandRank::RoyalFlush,
-        (true, Some(high_card), _, _, _) => HandRank::StraightFlush(high_card),
+        (true, Some(high_card), _, _, _)
+            if all_cards.windows(5).any(|window| {
+                window.iter().all(|card| card.suit == window[0].suit)
+                    && check_straight(&window.to_vec()).is_some()
+            }) =>
+        {
+            HandRank::StraightFlush(high_card)
+        }
         (_, _, Some(card), _, _) => HandRank::FourOfAKind(card),
-        (_, _, _, Some(three), pairs_count) if pairs_count > 0 => {
-            HandRank::FullHouse(three, pairs[0])
+        (_, _, _, Some(three_card), _) => {
+            // Xác định liệu có thêm một bộ ba khác không, không giống bộ ba hiện tại
+            let other_cards = all_cards
+                .iter()
+                .filter(|c| c.value != three_card)
+                .collect::<Vec<&Card>>();
+            let has_another_three = other_cards.iter().any(|&card| {
+                other_cards
+                    .iter()
+                    .filter(|&&c| c.value == card.value)
+                    .count()
+                    == 3
+            });
+
+            if has_another_three {
+                // Tìm giá trị của bộ ba thứ hai
+                let other_three_value = other_cards
+                    .iter()
+                    .find_map(|&card| {
+                        if other_cards
+                            .iter()
+                            .filter(|&&c| c.value == card.value)
+                            .count()
+                            == 3
+                        {
+                            Some(card.value)
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap(); // Có thể sử dụng unwrap vì chúng ta biết chắc chắn có một giá trị
+
+                // Xác định xem đâu là bộ ba lớn hơn và đâu là đôi
+                let (higher, lower) = if three_card > other_three_value {
+                    (three_card, other_three_value)
+                } else {
+                    (other_three_value, three_card)
+                };
+
+                HandRank::FullHouse(higher, lower)
+            } else if pairs.len() > 0 {
+                // Nếu không có bộ ba thứ hai nhưng có một đôi
+                HandRank::FullHouse(three_card, pairs[0])
+            } else {
+                // Không có đôi hoặc bộ ba thứ hai
+                HandRank::ThreeOfAKind(three_card)
+            }
         }
         (true, _, _, _, _) => HandRank::Flush(all_cards.last().unwrap().value),
         (_, Some(high_card), _, _, _) => HandRank::Straight(high_card),
-        (_, _, _, Some(card), _) => HandRank::ThreeOfAKind(card),
         (_, _, _, _, 2) => HandRank::TwoPair(pairs[0], pairs[1]),
         (_, _, _, _, 1) => HandRank::OnePair(pairs[0]),
         _ => HandRank::HighCard(all_cards.last().unwrap().value),
@@ -535,17 +586,58 @@ mod tests {
         ];
         assert_eq!(check_multiples(&cards), (None, Some(2), vec![3]));
     }
+
+    #[test]
+    fn test_full_house_1() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
+        let boards = [
+            Card { value: 2, suit: 2 },
+            Card { value: 3, suit: 3 },
+            Card { value: 3, suit: 0 },
+            Card { value: 3, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FullHouse(3, 2));
+    }
+    #[test]
+    fn test_full_house_2() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
+        let boards = [
+            Card { value: 2, suit: 2 },
+            Card { value: 3, suit: 0 },
+            Card { value: 3, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FullHouse(2, 3));
+    }
+    #[test]
+    fn test_straight_flush() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 3, suit: 0 }];
+        let boards = [
+            Card { value: 4, suit: 0 },
+            Card { value: 5, suit: 0 },
+            Card { value: 6, suit: 1 },
+            Card { value: 8, suit: 0 },
+        ];
+        assert_ne!(evaluate_hand(&cards, &boards), HandRank::StraightFlush(6));
+    }
+
+    #[test]
+    fn test_straight_flush_2() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 3, suit: 0 }];
+        let boards = [
+            Card { value: 4, suit: 0 },
+            Card { value: 5, suit: 0 },
+            Card { value: 6, suit: 0 },
+            Card { value: 8, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::StraightFlush(6));
+    }
 }
 
 fn main() {
     // Sử dụng hàm này để chạy mô phỏng
     // let hand = [Card { value: 10, suit: 0 }, Card { value: 11, suit: 2 }]; // Ví dụ: 10♠ và J♦
-    let hand = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
-    let board = vec![
-        Card { value: 2, suit: 3 },
-        Card { value: 5, suit: 1 },
-        Card { value: 7, suit: 2 },
-    ]; // Ví dụ: 2♣, 5♥, 7♦
+    let hand = [Card { value: 14, suit: 0 }, Card { value: 14, suit: 1 }];
+    let board = vec![]; // Ví dụ: 2♣, 5♥, 7♦
     let num_players = 5; // Số người chơi
     let (win_rate, loss_rate) = simulate_poker_hand(hand, board, num_players);
 
