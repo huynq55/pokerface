@@ -1,4 +1,6 @@
 use rand::seq::SliceRandom; // Sử dụng crate rand để xáo bài
+use rayon::prelude::*;
+use clap::{Arg, Command};
 
 // Định nghĩa cấu trúc cho một lá bài và bàn tay
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -201,86 +203,84 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
 
 // Hàm chính để mô phỏng và tính toán xác suất
 fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) -> (f64, f64) {
-    let mut deck = create_deck();
-    let mut wins = 0;
-    let mut losses = 0;
-    let mut total_simulations = 0;
-    let mut losing_hands_info = Vec::new();
+    let total_simulations = 250000; // Số lần mô phỏng
 
-    remove_known_cards(&mut deck, &hand, &board);
+    let (total_wins, total_losses, losing_hands_info) = (0..total_simulations)
+        .into_par_iter() // Biến đổi sang Parallel Iterator
+        .map(|_| {
+            let mut deck = create_deck();
+            remove_known_cards(&mut deck, &hand, &board);
+            deck.shuffle(&mut rand::thread_rng());
+            let mut all_hands = vec![hand.clone()];
+            let mut simulated_board = board.clone();
 
-    for _ in 0..100000 {
-        deck.shuffle(&mut rand::thread_rng());
-        let mut all_hands = vec![hand.clone()];
-        let mut simulated_board = board.clone();
+            for _ in 0..num_players - 1 {
+                all_hands.push([deck.pop().unwrap(), deck.pop().unwrap()]);
+            }
 
-        for _ in 0..num_players - 1 {
-            all_hands.push([deck.pop().unwrap(), deck.pop().unwrap()]);
-        }
+            while simulated_board.len() < 5 {
+                simulated_board.push(deck.pop().unwrap());
+            }
 
-        while simulated_board.len() < 5 {
-            simulated_board.push(deck.pop().unwrap());
-        }
+            let player_rank = evaluate_hand(&hand, &simulated_board);
+            let mut has_worse_hand = false;
+            let mut strongest_opponent_hand = None;
+            let mut strongest_opponent_rank = HandRank::HighCard(0);
 
-        let player_rank = evaluate_hand(&hand, &simulated_board);
-        let mut has_worse_hand = false;
-        let mut strongest_opponent_hand = None;
-        let mut strongest_opponent_rank = HandRank::HighCard(0); // Giả sử giá trị thấp nhất
-
-        for other_hand in all_hands.iter().skip(1) {
-            let other_rank = evaluate_hand(other_hand, &simulated_board);
-            if compare_hands(player_rank, other_rank) != 1 {
-                has_worse_hand = true;
-                if compare_hands(strongest_opponent_rank, other_rank) == -1 {
-                    strongest_opponent_rank = other_rank;
-                    strongest_opponent_hand = Some(other_hand);
+            for other_hand in all_hands.iter().skip(1) {
+                let other_rank = evaluate_hand(other_hand, &simulated_board);
+                if compare_hands(player_rank, other_rank) != 1 {
+                    has_worse_hand = true;
+                    if compare_hands(strongest_opponent_rank, other_rank) == -1 {
+                        strongest_opponent_rank = other_rank;
+                        strongest_opponent_hand = Some(*other_hand);
+                    }
                 }
             }
-        }
 
-        if has_worse_hand {
-            losses += 1;
-            // Chỉ lưu trữ thông tin cho 10 ván thua đầu tiên
-            if losses <= 10 {
-                if let Some(opponent_hand) = strongest_opponent_hand {
-                    let player_hand_str = hand
-                        .iter()
-                        .map(|card| card.display())
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    let opponent_hand_str = opponent_hand
-                        .iter()
-                        .map(|card| card.display())
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    let board_str = simulated_board
-                        .iter()
-                        .map(|card| card.display())
-                        .collect::<Vec<_>>()
-                        .join(" ");
-                    let description = format!(
-                        "Your hand: {}, Your Rank: {:?}, Opponent hand: {}, Opponent Rank: {:?}, Board: {}",
-                        player_hand_str, player_rank, opponent_hand_str, strongest_opponent_rank, board_str
-                    );
-                    losing_hands_info.push(description);
-                }
+            let description = if has_worse_hand {
+                let player_hand_str = hand.iter().map(|card| card.display()).collect::<Vec<_>>().join(" ");
+                let opponent_hand_str = strongest_opponent_hand.unwrap_or([Card { value: 0, suit: 0 }; 2])
+                    .iter()
+                    .map(|card| card.display())
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                let board_str = simulated_board.iter().map(|card| card.display()).collect::<Vec<_>>().join(" ");
+                Some(format!(
+                    "Your hand: {}, Your Rank: {:?}, Opponent hand: {}, Opponent Rank: {:?}, Board: {}",
+                    player_hand_str, player_rank, opponent_hand_str, strongest_opponent_rank, board_str
+                ))
+            } else {
+                None
+            };
+
+            if has_worse_hand {
+                (0, 1, description.map_or_else(Vec::new, |d| vec![d])) // Sử dụng description ở đây
+            } else {
+                (1, 0, Vec::new())
             }
-        } else {
-            wins += 1;
-        }
-        total_simulations += 1;
+        })
+        .reduce(
+            || (0, 0, Vec::new()), // Giá trị khởi tạo cho mỗi phân đoạn
+            |(wins_a, losses_a, mut info_a), (wins_b, losses_b, info_b)| {
+                // Kết hợp hai phần kết quả
+                info_a.extend(info_b); // Gộp thông tin về các bàn tay thua
+                if info_a.len() > 10 {
+                    // Giữ lại chỉ 10 mô tả đầu tiên
+                    info_a.truncate(10);
+                }
+                (wins_a + wins_b, losses_a + losses_b, info_a)
+            },
+        );
 
-        deck = create_deck();
-        remove_known_cards(&mut deck, &hand, &board);
-    }
+    // Tính tỷ lệ thắng thua
+    let win_rate = total_wins as f64 / total_simulations as f64;
+    let loss_rate = total_losses as f64 / total_simulations as f64;
 
-    // In ra thông tin về 10 bộ bài mạnh nhất mà bạn thua
-    for description in losing_hands_info.iter() {
+    // In ra thông tin về các bàn tay thua
+    for description in losing_hands_info {
         println!("{}", description);
     }
-
-    let win_rate = wins as f64 / total_simulations as f64;
-    let loss_rate = losses as f64 / total_simulations as f64;
 
     (win_rate, loss_rate)
 }
@@ -633,13 +633,82 @@ mod tests {
     }
 }
 
+fn parse_cards(input: &str) -> Vec<Card> {
+    input.split_whitespace()
+        .filter_map(|card_str| {  // Sử dụng filter_map để loại bỏ các giá trị rỗng hoặc không hợp lệ
+            if card_str.len() != 2 {  // Kiểm tra độ dài chuỗi để đảm bảo nó hợp lệ
+                None
+            } else {
+                let bytes = card_str.as_bytes();
+                let value = match bytes[0] as char {
+                    '2'..='9' => bytes[0] as u8 - b'0',
+                    'T' => 10,
+                    'J' => 11,
+                    'Q' => 12,
+                    'K' => 13,
+                    'A' => 14,
+                    _ => panic!("Invalid card value"),
+                };
+                let suit = match bytes[1] as char {
+                    'h' => 0,
+                    'd' => 1,
+                    'c' => 2,
+                    's' => 3,
+                    _ => panic!("Invalid card suit"),
+                };
+                Some(Card { value, suit })
+            }
+        })
+        .collect()
+}
+
 fn main() {
-    // Sử dụng hàm này để chạy mô phỏng
-    // let hand = [Card { value: 10, suit: 0 }, Card { value: 11, suit: 2 }]; // Ví dụ: 10♠ và J♦
-    let hand = [Card { value: 14, suit: 0 }, Card { value: 14, suit: 1 }];
-    let board = vec![]; // Ví dụ: 2♣, 5♥, 7♦
-    let num_players = 5; // Số người chơi
-    let (win_rate, loss_rate) = simulate_poker_hand(hand, board, num_players);
+    let matches = Command::new("Poker Hand Simulator")
+        .version("1.0")
+        .author("Your Name")
+        .about("Simulates a poker hand")
+        .arg(Arg::new("players")
+            .short('p')
+            .long("players")
+            .value_name("NUMBER_OF_PLAYERS")
+            .help("Sets the number of players at the table")
+            .takes_value(true)
+            .default_value("5"))
+        .arg(Arg::new("hand")
+            .short('h')
+            .long("hand")
+            .value_name("HAND")
+            .help("Sets the hand to evaluate")
+            .takes_value(true)
+            .required(true))
+        .arg(Arg::new("board")
+            .short('b')
+            .long("board")
+            .value_name("BOARD")
+            .help("Sets the board cards")
+            .takes_value(true)
+            .default_value(""))
+        .get_matches();
+
+    let num_players: usize = matches
+        .value_of("players")
+        .unwrap()
+        .parse()
+        .expect("Invalid number of players");
+
+    let hand_input = matches.value_of("hand").unwrap();
+    let board_input = matches.value_of("board").unwrap();
+
+    let hand_vec = parse_cards(hand_input); // Hàm parse_cards trả về Vec<Card>
+    let board_vec = parse_cards(board_input); // Hàm parse_cards trả về Vec<Card>
+
+    if hand_vec.len() != 2 {
+        panic!("Invalid hand length: expected 2 cards, found {}", hand_vec.len());
+    }
+
+    let hand_array = [hand_vec[0], hand_vec[1]]; // Chuyển đổi Vec<Card> thành [Card; 2]
+
+    let (win_rate, loss_rate) = simulate_poker_hand(hand_array, board_vec, num_players);
 
     println!(
         "Win rate: {:.2}%, Loss rate: {:.2}%",
@@ -647,3 +716,4 @@ fn main() {
         loss_rate * 100.0
     );
 }
+
