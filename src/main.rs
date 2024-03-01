@@ -1,6 +1,6 @@
+use clap::{Arg, Command};
 use rand::seq::SliceRandom; // Sử dụng crate rand để xáo bài
 use rayon::prelude::*;
-use clap::{Arg, Command};
 
 // Định nghĩa cấu trúc cho một lá bài và bàn tay
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -203,9 +203,9 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
 
 // Hàm chính để mô phỏng và tính toán xác suất
 fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) -> (f64, f64) {
-    let total_simulations = 250000; // Số lần mô phỏng
+    let total_simulations = 100000; // Số lần mô phỏng
 
-    let (total_wins, total_losses, losing_hands_info) = (0..total_simulations)
+    let (total_wins, total_losses) = (0..total_simulations)
         .into_par_iter() // Biến đổi sang Parallel Iterator
         .map(|_| {
             let mut deck = create_deck();
@@ -224,63 +224,32 @@ fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) ->
 
             let player_rank = evaluate_hand(&hand, &simulated_board);
             let mut has_worse_hand = false;
-            let mut strongest_opponent_hand = None;
-            let mut strongest_opponent_rank = HandRank::HighCard(0);
 
             for other_hand in all_hands.iter().skip(1) {
                 let other_rank = evaluate_hand(other_hand, &simulated_board);
                 if compare_hands(player_rank, other_rank) != 1 {
                     has_worse_hand = true;
-                    if compare_hands(strongest_opponent_rank, other_rank) == -1 {
-                        strongest_opponent_rank = other_rank;
-                        strongest_opponent_hand = Some(*other_hand);
-                    }
+                    break;
                 }
             }
 
-            let description = if has_worse_hand {
-                let player_hand_str = hand.iter().map(|card| card.display()).collect::<Vec<_>>().join(" ");
-                let opponent_hand_str = strongest_opponent_hand.unwrap_or([Card { value: 0, suit: 0 }; 2])
-                    .iter()
-                    .map(|card| card.display())
-                    .collect::<Vec<_>>()
-                    .join(" ");
-                let board_str = simulated_board.iter().map(|card| card.display()).collect::<Vec<_>>().join(" ");
-                Some(format!(
-                    "Your hand: {}, Your Rank: {:?}, Opponent hand: {}, Opponent Rank: {:?}, Board: {}",
-                    player_hand_str, player_rank, opponent_hand_str, strongest_opponent_rank, board_str
-                ))
-            } else {
-                None
-            };
-
             if has_worse_hand {
-                (0, 1, description.map_or_else(Vec::new, |d| vec![d])) // Sử dụng description ở đây
+                (0, 1)
             } else {
-                (1, 0, Vec::new())
+                (1, 0)
             }
         })
         .reduce(
-            || (0, 0, Vec::new()), // Giá trị khởi tạo cho mỗi phân đoạn
-            |(wins_a, losses_a, mut info_a), (wins_b, losses_b, info_b)| {
+            || (0, 0), // Giá trị khởi tạo cho mỗi phân đoạn
+            |(wins_a, losses_a), (wins_b, losses_b)| {
                 // Kết hợp hai phần kết quả
-                info_a.extend(info_b); // Gộp thông tin về các bàn tay thua
-                if info_a.len() > 10 {
-                    // Giữ lại chỉ 10 mô tả đầu tiên
-                    info_a.truncate(10);
-                }
-                (wins_a + wins_b, losses_a + losses_b, info_a)
+                (wins_a + wins_b, losses_a + losses_b)
             },
         );
 
     // Tính tỷ lệ thắng thua
     let win_rate = total_wins as f64 / total_simulations as f64;
     let loss_rate = total_losses as f64 / total_simulations as f64;
-
-    // In ra thông tin về các bàn tay thua
-    for description in losing_hands_info {
-        println!("{}", description);
-    }
 
     (win_rate, loss_rate)
 }
@@ -634,9 +603,12 @@ mod tests {
 }
 
 fn parse_cards(input: &str) -> Vec<Card> {
-    input.split_whitespace()
-        .filter_map(|card_str| {  // Sử dụng filter_map để loại bỏ các giá trị rỗng hoặc không hợp lệ
-            if card_str.len() != 2 {  // Kiểm tra độ dài chuỗi để đảm bảo nó hợp lệ
+    input
+        .split_whitespace()
+        .filter_map(|card_str| {
+            // Sử dụng filter_map để loại bỏ các giá trị rỗng hoặc không hợp lệ
+            if card_str.len() != 2 {
+                // Kiểm tra độ dài chuỗi để đảm bảo nó hợp lệ
                 None
             } else {
                 let bytes = card_str.as_bytes();
@@ -667,53 +639,45 @@ fn main() {
         .version("1.0")
         .author("Your Name")
         .about("Simulates a poker hand")
-        .arg(Arg::new("players")
-            .short('p')
-            .long("players")
-            .value_name("NUMBER_OF_PLAYERS")
-            .help("Sets the number of players at the table")
-            .takes_value(true)
-            .default_value("5"))
-        .arg(Arg::new("hand")
-            .short('h')
-            .long("hand")
-            .value_name("HAND")
-            .help("Sets the hand to evaluate")
-            .takes_value(true)
-            .required(true))
-        .arg(Arg::new("board")
-            .short('b')
-            .long("board")
-            .value_name("BOARD")
-            .help("Sets the board cards")
-            .takes_value(true)
-            .default_value(""))
+        .arg(
+            Arg::new("hand")
+                .short('h')
+                .long("hand")
+                .value_name("HAND")
+                .help("Sets the hand to evaluate")
+                .takes_value(true)
+                .required(true),
+        )
+        .arg(
+            Arg::new("board")
+                .short('b')
+                .long("board")
+                .value_name("BOARD")
+                .help("Sets the board cards")
+                .takes_value(true)
+                .default_value(""),
+        )
         .get_matches();
-
-    let num_players: usize = matches
-        .value_of("players")
-        .unwrap()
-        .parse()
-        .expect("Invalid number of players");
 
     let hand_input = matches.value_of("hand").unwrap();
     let board_input = matches.value_of("board").unwrap();
 
-    let hand_vec = parse_cards(hand_input); // Hàm parse_cards trả về Vec<Card>
-    let board_vec = parse_cards(board_input); // Hàm parse_cards trả về Vec<Card>
+    let hand_vec = parse_cards(hand_input); // Giả sử hàm parse_cards trả về Vec<Card>
+    let board_vec = parse_cards(board_input); // Giả sử hàm parse_cards trả về Vec<Card>
 
     if hand_vec.len() != 2 {
-        panic!("Invalid hand length: expected 2 cards, found {}", hand_vec.len());
+        panic!(
+            "Invalid hand length: expected 2 cards, found {}",
+            hand_vec.len()
+        );
     }
 
     let hand_array = [hand_vec[0], hand_vec[1]]; // Chuyển đổi Vec<Card> thành [Card; 2]
 
-    let (win_rate, loss_rate) = simulate_poker_hand(hand_array, board_vec, num_players);
+    for num_players in 2..=9 {
+        let (win_rate, _) = simulate_poker_hand(hand_array, board_vec.clone(), num_players);
+        let theoretical_mean_win_rate = 100.0 / num_players as f64; // Tính tỷ lệ thắng trung bình theo lý thuyết
 
-    println!(
-        "Win rate: {:.2}%, Loss rate: {:.2}%",
-        win_rate * 100.0,
-        loss_rate * 100.0
-    );
+        println!("Number of players: {}. Simulated Win rate: {:.2}%, Theoretical Mean Win rate: {:.2}%", num_players, win_rate * 100.0, theoretical_mean_win_rate);
+    }
 }
-
