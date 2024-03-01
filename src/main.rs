@@ -1,7 +1,7 @@
 use std::cmp::max;
 
 use clap::{Arg, Command};
-use rand::seq::SliceRandom; // Sử dụng crate rand để xáo bài
+use rand::{seq::SliceRandom, thread_rng}; // Sử dụng crate rand để xáo bài
 use rayon::prelude::*;
 
 // Định nghĩa cấu trúc cho một lá bài và bàn tay
@@ -964,7 +964,26 @@ fn parse_cards(input: &str) -> Vec<Card> {
         .collect()
 }
 
+fn print_hand_and_rank(hand: &[Card], board: &[Card]) {
+    println!("Hand: {}", hand.iter().map(|card| card.display()).collect::<Vec<_>>().join(" "));
+    println!("Board: {}", board.iter().map(|card| card.display()).collect::<Vec<_>>().join(" "));
+    println!("Rank: {:?}", evaluate_hand(hand, board));
+    println!("----");
+}
+
 fn main() {
+    let mut rng = thread_rng(); // Create random number generator
+
+    for _ in 0..10 {
+        let mut deck = create_deck();
+        deck.shuffle(&mut rng);
+
+        let hand = &deck[..2];
+        let board = &deck[2..7];
+
+        print_hand_and_rank(hand, board);
+    }
+    
     let matches = Command::new("Poker Hand Simulator")
         .version("1.0")
         .author("Your Name")
