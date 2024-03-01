@@ -878,6 +878,18 @@ mod tests {
     }
 
     #[test]
+    fn test_straight_flush_1() {
+        let cards = [Card { value: 8, suit: 0 }, Card { value: 8, suit: 1 }]; //Ace
+        let boards = [
+            Card { value: 9, suit: 0 },
+            Card { value: 10, suit: 0 },
+            Card { value: 11, suit: 0 },
+            Card { value: 12, suit: 0 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::StraightFlush(12));
+    }
+
+    #[test]
     fn test_full_house_3() {
         let cards = [Card { value: 5, suit: 0 }, Card { value: 5, suit: 1 }];
         let boards = [
