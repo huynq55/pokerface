@@ -876,6 +876,48 @@ mod tests {
         ];
         assert_eq!(evaluate_hand(&cards, &boards), HandRank::StraightFlush(5));
     }
+
+    #[test]
+    fn test_full_house_3() {
+        let cards = [Card { value: 5, suit: 0 }, Card { value: 5, suit: 1 }];
+        let boards = [
+            Card { value: 5, suit: 2 },
+            Card { value: 9, suit: 3 },
+            Card { value: 9, suit: 0 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FullHouse(5, 9));
+    }
+
+    #[test]
+    fn test_full_house_tiebreaker_2() {
+        let cards = [Card { value: 7, suit: 0 }, Card { value: 7, suit: 1 }];
+
+        let boards = [
+            Card { value: 7, suit: 1 },
+            Card { value: 5, suit: 2 },
+            Card { value: 5, suit: 3 },
+            Card { value: 8, suit: 0 },
+            Card { value: 4, suit: 0 },
+        ];
+
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FullHouse(7, 5));
+    }
+
+    #[test]
+    fn test_high_card_multiple_kickers() {
+        let cards = [Card { value: 3, suit: 0 }, Card { value: 5, suit: 1 }];
+        let boards = [
+            Card { value: 6, suit: 3 },
+            Card { value: 7, suit: 0 },
+            Card { value: 9, suit: 0 },
+            Card { value: 11, suit: 2 },
+            Card { value: 13, suit: 1 },
+        ];
+        assert_eq!(
+            evaluate_hand(&cards, &boards),
+            HandRank::HighCard(13, 11, 9, 7, 6)
+        );
+    }
 }
 
 fn parse_cards(input: &str) -> Vec<Card> {
