@@ -60,21 +60,21 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
     all_cards.sort_by(|a, b| a.value.cmp(&b.value));
 
     // Kiểm tra các loại bàn tay khác nhau
-    let is_flush = check_flush(&all_cards);
+    let flush_cards = check_flush(&all_cards);
     let straight_high_card = check_straight(&all_cards);
     let (four, three, pairs, singles) = check_multiples(&all_cards);
 
     // Đánh giá loại bàn tay dựa trên kết quả kiểm tra
     match (
-        is_flush,
+        flush_cards,
         straight_high_card,
         four,
         three,
         pairs.len(),
         singles,
     ) {
-        (true, Some(14), _, _, _, _) => HandRank::RoyalFlush,
-        (true, Some(high_card), _, _, _, _)
+        (Some(flush_cards), Some(14), _, _, _, _) => HandRank::RoyalFlush,
+        (Some(flush_cards), Some(high_card), _, _, _, _)
             if all_cards.windows(5).any(|window| {
                 window.iter().all(|card| card.suit == window[0].suit)
                     && check_straight(&window.to_vec()).is_some()
@@ -131,14 +131,14 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                 HandRank::ThreeOfAKind(three_card)
             }
         }
-        (true, _, _, _, _, singles) => {
+        (Some(flush_cards), _, _, _, _, _) => {
             // Tạo Flush object từ singles
             HandRank::Flush(
-                singles[0],
-                singles[1],
-                singles[2],
-                singles[3],
-                singles[4],
+                flush_cards[0].value,
+                flush_cards[1].value,
+                flush_cards[2].value,
+                flush_cards[3].value,
+                flush_cards[4].value,
             )
         }
 
@@ -355,7 +355,7 @@ fn create_deck() -> Vec<Card> {
 }
 
 // Hàm kiểm tra Flush
-fn check_flush(cards: &[Card]) -> bool {
+fn check_flush(cards: &[Card]) -> Option<Vec<Card>> {
     // Tạo một mảng để đếm số lượng lá bài cho mỗi chất
     let mut suits = [0; 4]; // Một mảng với 4 phần tử, tương ứng với 4 chất
 
@@ -364,8 +364,26 @@ fn check_flush(cards: &[Card]) -> bool {
         suits[card.suit as usize] += 1;
     }
 
-    // Kiểm tra xem có chất nào có ít nhất 5 lá bài không
-    suits.iter().any(|&count| count >= 5)
+    // Tìm kiếm chất có ít nhất 5 lá bài
+    let flush_suit = suits.iter().position(|&count| count >= 5)?;
+
+    // Lấy 5 lá bài đầu tiên của chất đó
+    let mut flush_cards = Vec::with_capacity(5);
+    for card in cards {
+        if card.suit as usize == flush_suit {
+            flush_cards.push(card.clone());
+            if flush_cards.len() == 5 {
+                break;
+            }
+        }
+    }
+
+    // Trả về 5 lá bài Flush nếu tìm thấy, hoặc None nếu không
+    if flush_cards.len() == 5 {
+        Some(flush_cards)
+    } else {
+        None
+    }
 }
 
 // Hàm kiểm tra Straight
