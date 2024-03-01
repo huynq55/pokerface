@@ -735,6 +735,58 @@ mod tests {
         let hand2 = HandRank::OnePair(10, 9, 8, 6);
         assert_eq!(compare_hands(hand1, hand2), 1);
     }
+
+    #[test]
+    fn test_four_of_a_kind_1() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
+        let boards = [
+            Card { value: 2, suit: 2 },
+            Card { value: 2, suit: 3 },
+            Card { value: 9, suit: 0 },
+            Card { value: 8, suit: 0 },
+            Card { value: 8, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FourOfAKind(2, 9));
+    }
+
+    #[test]
+    fn test_four_of_a_kind_2() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
+        let boards = [
+            Card { value: 2, suit: 2 },
+            Card { value: 2, suit: 3 },
+            Card { value: 6, suit: 0 },
+            Card { value: 8, suit: 0 },
+            Card { value: 8, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FourOfAKind(2, 8));
+    }
+
+    #[test]
+    fn test_four_of_a_kind_3() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
+        let boards = [
+            Card { value: 2, suit: 2 },
+            Card { value: 2, suit: 3 },
+            Card { value: 7, suit: 0 },
+            Card { value: 7, suit: 1 },
+            Card { value: 7, suit: 2 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FourOfAKind(2, 7));
+    }
+
+    #[test]
+    fn test_four_of_a_kind_4() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
+        let boards = [
+            Card { value: 2, suit: 2 },
+            Card { value: 2, suit: 3 },
+            Card { value: 6, suit: 0 },
+            Card { value: 10, suit: 1 },
+            Card { value: 5, suit: 2 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FourOfAKind(2, 10));
+    }
 }
 
 fn parse_cards(input: &str) -> Vec<Card> {
