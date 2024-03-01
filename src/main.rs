@@ -73,8 +73,8 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         pairs.len(),
         singles,
     ) {
-        (Some(flush_cards), Some(14), _, _, _, _) => HandRank::RoyalFlush,
-        (Some(flush_cards), Some(high_card), _, _, _, _)
+        (Some(_flush_cards), Some(14), _, _, _, _) => HandRank::RoyalFlush,
+        (Some(_flush_cards), Some(high_card), _, _, _, _)
             if all_cards.windows(5).any(|window| {
                 window.iter().all(|card| card.suit == window[0].suit)
                     && check_straight(&window.to_vec()).is_some()
@@ -131,14 +131,14 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                 HandRank::ThreeOfAKind(three_card)
             }
         }
-        (Some(flush_cards), _, _, _, _, _) => {
+        (Some(_flush_cards), _, _, _, _, _) => {
             // Tạo Flush object từ singles
             HandRank::Flush(
-                flush_cards[0].value,
-                flush_cards[1].value,
-                flush_cards[2].value,
-                flush_cards[3].value,
-                flush_cards[4].value,
+                _flush_cards[0].value,
+                _flush_cards[1].value,
+                _flush_cards[2].value,
+                _flush_cards[3].value,
+                _flush_cards[4].value,
             )
         }
 
