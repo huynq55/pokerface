@@ -76,13 +76,17 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         singles,
     ) {
         (Some(_flush_cards), Some(14), _, _, _, _) => HandRank::RoyalFlush,
-        (Some(_flush_cards), Some(high_card), _, _, _, _)
-            if all_cards.windows(5).any(|window| {
-                window.iter().all(|card| card.suit == window[0].suit)
-                    && check_straight(&window.to_vec()).is_some()
-            }) =>
+        (Some(_flush_cards), _, _, _, _, _)
+            if {
+                if let Some(highest_card) = check_straight(&_flush_cards) {
+                    true
+                } else {
+                    false
+                }
+            } =>
         {
-            HandRank::StraightFlush(high_card)
+            let highest_card = check_straight(&_flush_cards).unwrap();
+            HandRank::StraightFlush(highest_card)
         }
         (_, _, Some(_four), Some(_three), _, _) => HandRank::FourOfAKind(_four, _three),
         (_, _, Some(_four), _, 1, singles) => {
@@ -830,7 +834,47 @@ mod tests {
             Card { value: 6, suit: 0 },
             Card { value: 6, suit: 2 },
         ];
-        assert_eq!(check_multiples(&cards), (None, None, vec![6], vec![])); //Only check the pair
+        assert_eq!(
+            check_multiples(&cards),
+            (None, None, vec![6], vec![5, 4, 3, 2])
+        ); //Only check the pair
+    }
+
+    #[test]
+    fn test_full_house_tiebreaker() {
+        let cards1 = [Card { value: 2, suit: 0 }, Card { value: 5, suit: 1 }];
+        let cards2 = [Card { value: 3, suit: 0 }, Card { value: 4, suit: 0 }];
+
+        let boards = [
+            Card { value: 2, suit: 1 },
+            Card { value: 2, suit: 2 },
+            Card { value: 3, suit: 1 },
+            Card { value: 3, suit: 2 },
+        ];
+
+        assert_eq!(evaluate_hand(&cards1, &boards), HandRank::FullHouse(2, 3));
+        assert_eq!(evaluate_hand(&cards2, &boards), HandRank::FullHouse(3, 2));
+
+        // Test comparison when both are Full Houses
+        assert_eq!(
+            compare_hands(
+                evaluate_hand(&cards2, &boards),
+                evaluate_hand(&cards1, &boards)
+            ),
+            1
+        );
+    }
+
+    #[test]
+    fn test_straight_flush_ace_low() {
+        let cards = [Card { value: 14, suit: 0 }, Card { value: 3, suit: 0 }]; //Ace
+        let boards = [
+            Card { value: 4, suit: 0 },
+            Card { value: 5, suit: 0 },
+            Card { value: 2, suit: 0 },
+            Card { value: 8, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::StraightFlush(5));
     }
 }
 
