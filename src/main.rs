@@ -681,7 +681,7 @@ fn main() {
             "Number of players: {}. Simulated Win rate: {:.2}%, EV 1$ bet {:.2}$",
             num_players,
             win_rate * 100.0,
-            (num_players + 1) as f64 * win_rate - 1.0
+            num_players as f64 * win_rate - 1.0
         );
     }
 }
