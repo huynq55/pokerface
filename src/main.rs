@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use clap::{Arg, Command};
 use rand::seq::SliceRandom; // Sử dụng crate rand để xáo bài
 use rayon::prelude::*;
@@ -82,7 +84,17 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         {
             HandRank::StraightFlush(high_card)
         }
-        (_, _, Some(card), _, _, singles) => HandRank::FourOfAKind(card, singles[0]),
+        (_, _, Some(_four), Some(_three), _, _) => HandRank::FourOfAKind(_four, _three),
+        (_, _, Some(_four), _, 1, singles) => {
+            if pairs[0] > singles[0] {
+                HandRank::FourOfAKind(_four, pairs[0])
+            } else {
+                HandRank::FourOfAKind(_four, singles[0])
+            }
+        }
+        (_, _, Some(_four), _, _, singles) => {
+            HandRank::FourOfAKind(_four, max(max(singles[0], singles[1]), singles[2]))
+        }
         (_, _, _, Some(three_card), _, _) => {
             // Xác định liệu có thêm một bộ ba khác không, không giống bộ ba hiện tại
             let other_cards = all_cards
@@ -145,7 +157,9 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         (_, Some(high_card), _, _, _, _) => HandRank::Straight(high_card),
         (_, _, _, _, 2, singles) => HandRank::TwoPair(pairs[0], pairs[1], singles[0]),
         (_, _, _, _, 1, singles) => HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2]),
-        (_, _, _, _, _, singles) => HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4]),
+        (_, _, _, _, _, singles) => {
+            HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4])
+        }
     }
 }
 
@@ -235,23 +249,23 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
                 if let HandRank::OnePair(pair2, kicker2_1, kicker2_2, kicker2_3) = hand2 {
                     // 1. So sánh giá trị pair:
                     match pair1.cmp(&pair2) {
-                        std::cmp::Ordering::Greater => return 1,  
-                        std::cmp::Ordering::Less => return -1, 
+                        std::cmp::Ordering::Greater => return 1,
+                        std::cmp::Ordering::Less => return -1,
                         std::cmp::Ordering::Equal => {
                             // 2. Nếu pair bằng nhau, so sánh kicker1:
                             match kicker1.cmp(&kicker2_1) {
-                                std::cmp::Ordering::Greater => return 1,  
+                                std::cmp::Ordering::Greater => return 1,
                                 std::cmp::Ordering::Less => return -1,
                                 std::cmp::Ordering::Equal => {
                                     // 3. Nếu kicker1 bằng nhau, so sánh kicker2:
                                     match kicker2.cmp(&kicker2_2) {
-                                        std::cmp::Ordering::Greater => return 1,  
+                                        std::cmp::Ordering::Greater => return 1,
                                         std::cmp::Ordering::Less => return -1,
                                         std::cmp::Ordering::Equal => {
                                             // 4. Nếu kicker2 bằng nhau, so sánh kicker3:
                                             match kicker3.cmp(&kicker2_3) {
-                                                std::cmp::Ordering::Greater => return 1,  
-                                                std::cmp::Ordering::Less => return -1, 
+                                                std::cmp::Ordering::Greater => return 1,
+                                                std::cmp::Ordering::Less => return -1,
                                                 std::cmp::Ordering::Equal => return 0, // Hòa
                                             }
                                         }
@@ -261,9 +275,9 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
                         }
                     }
                 } else {
-                    0 
+                    0
                 }
-            }            
+            }
             HandRank::HighCard(a1, b1, c1, d1, e1) => {
                 if let HandRank::Flush(a2, b2, c2, d2, e2) = hand2 {
                     if a1 != a2 {
@@ -721,7 +735,6 @@ mod tests {
         let hand2 = HandRank::OnePair(10, 9, 8, 6);
         assert_eq!(compare_hands(hand1, hand2), 1);
     }
-
 }
 
 fn parse_cards(input: &str) -> Vec<Card> {
