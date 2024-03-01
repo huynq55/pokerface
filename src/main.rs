@@ -9,6 +9,21 @@ struct Card {
     suit: u8,  // Chất của lá bài, có thể định nghĩa từ 0 đến 3
 }
 
+// Định nghĩa các loại bàn tay
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
+enum HandRank {
+    HighCard(u8),
+    OnePair(u8),
+    TwoPair(u8, u8),
+    ThreeOfAKind(u8),
+    Straight(u8),
+    Flush(u8, u8, u8, u8, u8),
+    FullHouse(u8, u8),
+    FourOfAKind(u8, u8),
+    StraightFlush(u8),
+    RoyalFlush,
+}
+
 impl Card {
     fn display(&self) -> String {
         let value_str = match self.value {
@@ -47,12 +62,19 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
     // Kiểm tra các loại bàn tay khác nhau
     let is_flush = check_flush(&all_cards);
     let straight_high_card = check_straight(&all_cards);
-    let (four, three, pairs) = check_multiples(&all_cards);
+    let (four, three, pairs, singles) = check_multiples(&all_cards);
 
     // Đánh giá loại bàn tay dựa trên kết quả kiểm tra
-    match (is_flush, straight_high_card, four, three, pairs.len()) {
-        (true, Some(14), _, _, _) => HandRank::RoyalFlush,
-        (true, Some(high_card), _, _, _)
+    match (
+        is_flush,
+        straight_high_card,
+        four,
+        three,
+        pairs.len(),
+        singles,
+    ) {
+        (true, Some(14), _, _, _, _) => HandRank::RoyalFlush,
+        (true, Some(high_card), _, _, _, _)
             if all_cards.windows(5).any(|window| {
                 window.iter().all(|card| card.suit == window[0].suit)
                     && check_straight(&window.to_vec()).is_some()
@@ -60,8 +82,8 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         {
             HandRank::StraightFlush(high_card)
         }
-        (_, _, Some(card), _, _) => HandRank::FourOfAKind(card),
-        (_, _, _, Some(three_card), _) => {
+        (_, _, Some(card), _, _, singles) => HandRank::FourOfAKind(card, singles[0]),
+        (_, _, _, Some(three_card), _, _) => {
             // Xác định liệu có thêm một bộ ba khác không, không giống bộ ba hiện tại
             let other_cards = all_cards
                 .iter()
@@ -109,10 +131,20 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                 HandRank::ThreeOfAKind(three_card)
             }
         }
-        (true, _, _, _, _) => HandRank::Flush(all_cards.last().unwrap().value),
-        (_, Some(high_card), _, _, _) => HandRank::Straight(high_card),
-        (_, _, _, _, 2) => HandRank::TwoPair(pairs[0], pairs[1]),
-        (_, _, _, _, 1) => HandRank::OnePair(pairs[0]),
+        (true, _, _, _, _, singles) => {
+            // Tạo Flush object từ singles
+            HandRank::Flush(
+                singles[0],
+                singles[1],
+                singles[2],
+                singles[3],
+                singles[4],
+            )
+        }
+
+        (_, Some(high_card), _, _, _, _) => HandRank::Straight(high_card),
+        (_, _, _, _, 2, _) => HandRank::TwoPair(pairs[0], pairs[1]),
+        (_, _, _, _, 1, _) => HandRank::OnePair(pairs[0]),
         _ => HandRank::HighCard(all_cards.last().unwrap().value),
     }
 }
@@ -135,9 +167,12 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
                     0 // Không thể xảy ra, chỉ để đảm bảo mã không lỗi
                 }
             }
-            HandRank::FourOfAKind(card1) => {
-                if let HandRank::FourOfAKind(card2) = hand2 {
-                    card1.cmp(&card2) as i32
+            HandRank::FourOfAKind(card1, kicker1) => {
+                if let HandRank::FourOfAKind(card2, kicker2) = hand2 {
+                    match card1.cmp(&card2) {
+                        std::cmp::Ordering::Equal => kicker1.cmp(&kicker2) as i32,
+                        other => other as i32,
+                    }
                 } else {
                     0
                 }
@@ -152,9 +187,19 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
                     0
                 }
             }
-            HandRank::Flush(high_card1) => {
-                if let HandRank::Flush(high_card2) = hand2 {
-                    high_card1.cmp(&high_card2) as i32
+            HandRank::Flush(a1, b1, c1, d1, e1) => {
+                if let HandRank::Flush(a2, b2, c2, d2, e2) = hand2 {
+                    if a1 != a2 {
+                        return a1.cmp(&a2) as i32;
+                    } else if b1 != b2 {
+                        return b1.cmp(&b2) as i32;
+                    } else if c1 != c2 {
+                        return c1.cmp(&c2) as i32;
+                    } else if d1 != d2 {
+                        return d1.cmp(&d2) as i32;
+                    } else {
+                        return e1.cmp(&e2) as i32;
+                    }
                 } else {
                     0
                 }
@@ -270,21 +315,6 @@ fn create_deck() -> Vec<Card> {
     deck
 }
 
-// Định nghĩa các loại bàn tay
-#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
-enum HandRank {
-    HighCard(u8),
-    OnePair(u8),
-    TwoPair(u8, u8),
-    ThreeOfAKind(u8),
-    Straight(u8),
-    Flush(u8),
-    FullHouse(u8, u8),
-    FourOfAKind(u8),
-    StraightFlush(u8),
-    RoyalFlush,
-}
-
 // Hàm kiểm tra Flush
 fn check_flush(cards: &[Card]) -> bool {
     // Tạo một mảng để đếm số lượng lá bài cho mỗi chất
@@ -337,7 +367,7 @@ fn check_straight(cards: &[Card]) -> Option<u8> {
 }
 
 // Hàm kiểm tra các bộ (Pairs, Three of a Kind, Four of a Kind)
-fn check_multiples(cards: &[Card]) -> (Option<u8>, Option<u8>, Vec<u8>) {
+fn check_multiples(cards: &[Card]) -> (Option<u8>, Option<u8>, Vec<u8>, Vec<u8>) {
     let mut counts = [0; 15]; // Mảng đếm từ 2 đến 14
     for card in cards {
         counts[card.value as usize] += 1;
@@ -346,23 +376,27 @@ fn check_multiples(cards: &[Card]) -> (Option<u8>, Option<u8>, Vec<u8>) {
     let mut four = None;
     let mut three = None;
     let mut pairs = Vec::new();
+    let mut singles = Vec::new(); // Track single cards (not part of multiple)
 
     for (value, &count) in counts.iter().enumerate() {
         match count {
             4 => four = Some(value as u8),
             3 => three = Some(value as u8),
             2 => pairs.push(value as u8),
+            1 => singles.push(value as u8), // Store single cards
             _ => (),
         }
     }
 
-    // Sắp xếp giảm dần và chỉ giữ lại hai giá trị lớn nhất nếu có nhiều hơn hai cặp
+    // Sắp xếp giảm dần
     pairs.sort_by(|a, b| b.cmp(a));
+    singles.sort_by(|a, b| b.cmp(a));
+
     if pairs.len() > 2 {
-        pairs.truncate(2); // Chỉ giữ lại hai cặp có giá trị cao nhất
+        pairs.truncate(2);
     }
 
-    (four, three, pairs)
+    (four, three, pairs, singles)
 }
 
 #[cfg(test)]
@@ -467,7 +501,10 @@ mod tests {
             Card { value: 8, suit: 3 },
             Card { value: 10, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (None, None, vec![]));
+        assert_eq!(
+            check_multiples(&cards),
+            (None, None, vec![], vec![10, 8, 6, 4, 2])
+        );
     }
 
     #[test]
@@ -479,7 +516,10 @@ mod tests {
             Card { value: 8, suit: 3 },
             Card { value: 10, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (None, None, vec![3]));
+        assert_eq!(
+            check_multiples(&cards),
+            (None, None, vec![3], vec![10, 8, 6])
+        );
     }
 
     #[test]
@@ -491,7 +531,7 @@ mod tests {
             Card { value: 6, suit: 3 },
             Card { value: 10, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (None, None, vec![6, 5]));
+        assert_eq!(check_multiples(&cards), (None, None, vec![6, 5], vec![10]));
     }
 
     #[test]
@@ -504,7 +544,7 @@ mod tests {
             Card { value: 6, suit: 0 },
             Card { value: 6, suit: 1 },
         ];
-        assert_eq!(check_multiples(&cards), (None, None, vec![7, 6]));
+        assert_eq!(check_multiples(&cards), (None, None, vec![7, 6], vec![]));
     }
 
     #[test]
@@ -516,7 +556,10 @@ mod tests {
             Card { value: 8, suit: 3 },
             Card { value: 10, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (None, Some(7), vec![]));
+        assert_eq!(
+            check_multiples(&cards),
+            (None, Some(7), vec![], vec![10, 8])
+        );
     }
 
     #[test]
@@ -529,7 +572,7 @@ mod tests {
             Card { value: 7, suit: 1 },
             Card { value: 8, suit: 2 },
         ];
-        assert_eq!(check_multiples(&cards), (None, Some(8), vec![]));
+        assert_eq!(check_multiples(&cards), (None, Some(8), vec![], vec![]));
     }
 
     #[test]
@@ -541,7 +584,7 @@ mod tests {
             Card { value: 9, suit: 3 },
             Card { value: 10, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (Some(9), None, vec![]));
+        assert_eq!(check_multiples(&cards), (Some(9), None, vec![], vec![10]));
     }
 
     #[test]
@@ -553,7 +596,7 @@ mod tests {
             Card { value: 3, suit: 3 },
             Card { value: 3, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (None, Some(2), vec![3]));
+        assert_eq!(check_multiples(&cards), (None, Some(2), vec![3], vec![]));
     }
 
     #[test]
@@ -600,6 +643,14 @@ mod tests {
         ];
         assert_eq!(evaluate_hand(&cards, &boards), HandRank::StraightFlush(6));
     }
+
+    #[test]
+    fn test_compare_hands_flush_1() {
+        let hand1 = HandRank::Flush(10, 9, 8, 7, 4);
+        let hand2 = HandRank::Flush(10, 9, 8, 7, 5);
+        assert_eq!(compare_hands(hand1, hand2), -1);
+    }
+
 }
 
 fn parse_cards(input: &str) -> Vec<Card> {
