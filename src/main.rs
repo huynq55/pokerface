@@ -13,8 +13,8 @@ struct Card {
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 enum HandRank {
     HighCard(u8),
-    OnePair(u8),
-    TwoPair(u8, u8),
+    OnePair(u8, u8, u8, u8),
+    TwoPair(u8, u8, u8),
     ThreeOfAKind(u8),
     Straight(u8),
     Flush(u8, u8, u8, u8, u8),
@@ -143,8 +143,8 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         }
 
         (_, Some(high_card), _, _, _, _) => HandRank::Straight(high_card),
-        (_, _, _, _, 2, _) => HandRank::TwoPair(pairs[0], pairs[1]),
-        (_, _, _, _, 1, _) => HandRank::OnePair(pairs[0]),
+        (_, _, _, _, 2, singles) => HandRank::TwoPair(pairs[0], pairs[1], singles[0]),
+        (_, _, _, _, 1, singles) => HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2]),
         _ => HandRank::HighCard(all_cards.last().unwrap().value),
     }
 }
@@ -218,23 +218,52 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
                     0
                 }
             }
-            HandRank::TwoPair(high_pair1, low_pair1) => {
-                if let HandRank::TwoPair(high_pair2, low_pair2) = hand2 {
+            HandRank::TwoPair(high_pair1, low_pair1, kicker1) => {
+                if let HandRank::TwoPair(high_pair2, low_pair2, kicker2) = hand2 {
                     match high_pair1.cmp(&high_pair2) {
-                        std::cmp::Ordering::Equal => low_pair1.cmp(&low_pair2) as i32,
+                        std::cmp::Ordering::Equal => match low_pair1.cmp(&low_pair2) {
+                            std::cmp::Ordering::Equal => kicker1.cmp(&kicker2) as i32,
+                            other => other as i32,
+                        },
                         other => other as i32,
                     }
                 } else {
                     0
                 }
             }
-            HandRank::OnePair(pair1) => {
-                if let HandRank::OnePair(pair2) = hand2 {
-                    pair1.cmp(&pair2) as i32
+            HandRank::OnePair(pair1, kicker1, kicker2, kicker3) => {
+                if let HandRank::OnePair(pair2, kicker2_1, kicker2_2, kicker2_3) = hand2 {
+                    // 1. So sánh giá trị pair:
+                    match pair1.cmp(&pair2) {
+                        std::cmp::Ordering::Greater => return 1,  
+                        std::cmp::Ordering::Less => return -1, 
+                        std::cmp::Ordering::Equal => {
+                            // 2. Nếu pair bằng nhau, so sánh kicker1:
+                            match kicker1.cmp(&kicker2_1) {
+                                std::cmp::Ordering::Greater => return 1,  
+                                std::cmp::Ordering::Less => return -1,
+                                std::cmp::Ordering::Equal => {
+                                    // 3. Nếu kicker1 bằng nhau, so sánh kicker2:
+                                    match kicker2.cmp(&kicker2_2) {
+                                        std::cmp::Ordering::Greater => return 1,  
+                                        std::cmp::Ordering::Less => return -1,
+                                        std::cmp::Ordering::Equal => {
+                                            // 4. Nếu kicker2 bằng nhau, so sánh kicker3:
+                                            match kicker3.cmp(&kicker2_3) {
+                                                std::cmp::Ordering::Greater => return 1,  
+                                                std::cmp::Ordering::Less => return -1, 
+                                                std::cmp::Ordering::Equal => return 0, // Hòa
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 } else {
-                    0
+                    0 
                 }
-            }
+            }            
             HandRank::HighCard(high_card1) => {
                 if let HandRank::HighCard(high_card2) = hand2 {
                     high_card1.cmp(&high_card2) as i32
@@ -649,6 +678,20 @@ mod tests {
         let hand1 = HandRank::Flush(10, 9, 8, 7, 4);
         let hand2 = HandRank::Flush(10, 9, 8, 7, 5);
         assert_eq!(compare_hands(hand1, hand2), -1);
+    }
+
+    #[test]
+    fn test_compare_hands_two_pairs_1() {
+        let hand1 = HandRank::TwoPair(10, 9, 8);
+        let hand2 = HandRank::TwoPair(10, 9, 7);
+        assert_eq!(compare_hands(hand1, hand2), 1);
+    }
+
+    #[test]
+    fn test_compare_hands_one_pairs_1() {
+        let hand1 = HandRank::OnePair(10, 9, 8, 7);
+        let hand2 = HandRank::OnePair(10, 9, 8, 6);
+        assert_eq!(compare_hands(hand1, hand2), 1);
     }
 
 }
