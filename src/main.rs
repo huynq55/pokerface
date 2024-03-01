@@ -12,7 +12,7 @@ struct Card {
 // Định nghĩa các loại bàn tay
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 enum HandRank {
-    HighCard(u8),
+    HighCard(u8, u8, u8, u8, u8),
     OnePair(u8, u8, u8, u8),
     TwoPair(u8, u8, u8),
     ThreeOfAKind(u8),
@@ -145,7 +145,7 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         (_, Some(high_card), _, _, _, _) => HandRank::Straight(high_card),
         (_, _, _, _, 2, singles) => HandRank::TwoPair(pairs[0], pairs[1], singles[0]),
         (_, _, _, _, 1, singles) => HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2]),
-        _ => HandRank::HighCard(all_cards.last().unwrap().value),
+        (_, _, _, _, _, singles) => HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4]),
     }
 }
 
@@ -264,9 +264,19 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
                     0 
                 }
             }            
-            HandRank::HighCard(high_card1) => {
-                if let HandRank::HighCard(high_card2) = hand2 {
-                    high_card1.cmp(&high_card2) as i32
+            HandRank::HighCard(a1, b1, c1, d1, e1) => {
+                if let HandRank::Flush(a2, b2, c2, d2, e2) = hand2 {
+                    if a1 != a2 {
+                        return a1.cmp(&a2) as i32;
+                    } else if b1 != b2 {
+                        return b1.cmp(&b2) as i32;
+                    } else if c1 != c2 {
+                        return c1.cmp(&c2) as i32;
+                    } else if d1 != d2 {
+                        return d1.cmp(&d2) as i32;
+                    } else {
+                        return e1.cmp(&e2) as i32;
+                    }
                 } else {
                     0
                 }
