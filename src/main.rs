@@ -676,8 +676,12 @@ fn main() {
 
     for num_players in 2..=9 {
         let (win_rate, _) = simulate_poker_hand(hand_array, board_vec.clone(), num_players);
-        let theoretical_mean_win_rate = 100.0 / num_players as f64; // Tính tỷ lệ thắng trung bình theo lý thuyết
 
-        println!("Number of players: {}. Simulated Win rate: {:.2}%, Theoretical Mean Win rate: {:.2}%", num_players, win_rate * 100.0, theoretical_mean_win_rate);
+        println!(
+            "Number of players: {}. Simulated Win rate: {:.2}%, EV 1$ bet {:.2}$",
+            num_players,
+            win_rate * 100.0,
+            (num_players + 1) as f64 * win_rate - 1.0
+        );
     }
 }
