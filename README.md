@@ -4,6 +4,6 @@ With help of GPT 4
 
 Usage:
 
-./pokerface -p 5 -h "Ah Ad"
+./pokerface -h "Ah Ad"
 
-./pokerface -p 5 -h "Ah Ad" -b "As Kh Kd"
+./pokerface -h "Ah Ad" -b "As Kh Kd"
