@@ -445,14 +445,14 @@ fn check_multiples(cards: &[Card]) -> (Option<u8>, Option<u8>, Vec<u8>, Vec<u8>)
     }
 
     let mut four = None;
-    let mut three = None;
+    let mut three = Vec::new();
     let mut pairs = Vec::new();
     let mut singles = Vec::new(); // Track single cards (not part of multiple)
 
     for (value, &count) in counts.iter().enumerate() {
         match count {
             4 => four = Some(value as u8),
-            3 => three = Some(value as u8),
+            3 => three.push(value as u8),
             2 => pairs.push(value as u8),
             1 => singles.push(value as u8), // Store single cards
             _ => (),
@@ -461,13 +461,19 @@ fn check_multiples(cards: &[Card]) -> (Option<u8>, Option<u8>, Vec<u8>, Vec<u8>)
 
     // Sắp xếp giảm dần
     pairs.sort_by(|a, b| b.cmp(a));
+    three.sort_by(|a, b| b.cmp(a));
+
     singles.sort_by(|a, b| b.cmp(a));
 
     if pairs.len() > 2 {
         pairs.truncate(2);
     }
 
-    (four, three, pairs, singles)
+    if (three.is_empty()) {
+        return (four, None, pairs, singles);
+    } else {
+        return (four, Some(three[0] as u8), pairs, singles);
+    }
 }
 
 #[cfg(test)]
@@ -786,6 +792,45 @@ mod tests {
             Card { value: 5, suit: 2 },
         ];
         assert_eq!(evaluate_hand(&cards, &boards), HandRank::FourOfAKind(2, 10));
+    }
+
+    #[test]
+    fn test_straight_ace_both_high_and_low() {
+        let cards = vec![
+            Card { value: 10, suit: 0 },
+            Card { value: 11, suit: 1 },
+            Card { value: 12, suit: 2 },
+            Card { value: 13, suit: 3 },
+            Card { value: 14, suit: 0 }, // Ace
+            Card { value: 2, suit: 1 },
+        ];
+        assert_eq!(check_straight(&cards), Some(14)); // Ace as High
+    }
+
+    #[test]
+    fn test_two_three_of_a_kinds() {
+        let cards = [
+            Card { value: 6, suit: 0 },
+            Card { value: 6, suit: 1 },
+            Card { value: 6, suit: 2 },
+            Card { value: 8, suit: 3 },
+            Card { value: 8, suit: 0 },
+            Card { value: 8, suit: 1 },
+        ];
+        assert_eq!(check_multiples(&cards), (None, Some(8), vec![], vec![]));
+    }
+
+    #[test]
+    fn test_straight_and_one_pair() {
+        let cards = [
+            Card { value: 2, suit: 0 },
+            Card { value: 3, suit: 1 },
+            Card { value: 4, suit: 2 },
+            Card { value: 5, suit: 3 },
+            Card { value: 6, suit: 0 },
+            Card { value: 6, suit: 2 },
+        ];
+        assert_eq!(check_multiples(&cards), (None, None, vec![6], vec![])); //Only check the pair
     }
 }
 
