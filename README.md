@@ -1,6 +1,8 @@
 Poker game simulation CLI
-With help of GPT 4
-![image](https://github.com/huynq55/pokerface/assets/1425348/dc7fd064-b85b-49ea-89b0-656685565fb9)
+With help of GPT 4 and Google Gemini
+
+![image](https://github.com/huynq55/pokerface/assets/1425348/4879e65d-8bfe-4e91-9836-9165f379d5f0)
+
 
 Usage:
 
