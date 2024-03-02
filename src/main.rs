@@ -63,31 +63,92 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
 
     // Kiểm tra các loại bàn tay khác nhau
     let flush_cards = check_flush(&all_cards);
-    let straight_high_card = check_straight(&all_cards);
+    let straight_values = check_straight(&all_cards);
     let (four, three, pairs, singles) = check_multiples(&all_cards);
 
     // Đánh giá loại bàn tay dựa trên kết quả kiểm tra
     match (
         flush_cards,
-        straight_high_card,
+        straight_values,
         four,
         three,
         pairs.len(),
         singles,
     ) {
-        (Some(_flush_cards), Some(14), _, _, _, _) => HandRank::RoyalFlush,
-        (Some(_flush_cards), _, _, _, _, _)
-            if {
-                if let Some(highest_card) = check_straight(&_flush_cards) {
-                    true
+        (Some(flush_cards), Some(straight_values), _, _, _, _) => {
+            if straight_values.contains(&14) {
+                // Kiểm tra sự tồn tại của 10, J, Q, K, A
+                let has_royal_flush_cards = flush_cards.iter().any(|card| card.value == 14)
+                    && flush_cards.iter().any(|card| card.value == 13)
+                    && flush_cards.iter().any(|card| card.value == 12)
+                    && flush_cards.iter().any(|card| card.value == 11)
+                    && flush_cards.iter().any(|card| card.value == 10);
+
+                if has_royal_flush_cards {
+                    HandRank::RoyalFlush
                 } else {
-                    false
+                    // Kiểm tra các Sảnh đồng chất khác (Straight Flush)
+                    for straight_value in straight_values.iter() {
+                        let values_to_check = if *straight_value == 5 {
+                            // Trường hợp đặc biệt - 5 4 3 2 14
+                            vec![5, 4, 3, 2, 14]
+                        } else {
+                            // Trường hợp bình thường
+                            vec![*straight_value, *straight_value - 1, *straight_value - 2, *straight_value - 3, *straight_value - 4]
+                        };
+                    
+                        if values_to_check.iter().all(|value| flush_cards.iter().any(|card| card.value == *value)) {
+                            return HandRank::StraightFlush(*straight_value);
+                        }
+                    }
+                    
+                    // Không tìm thấy Straight Flush - trả về Flush thông thường
+                    HandRank::Flush(
+                        flush_cards[0].value,
+                        flush_cards[1].value,
+                        flush_cards[2].value,
+                        flush_cards[3].value,
+                        flush_cards[4].value,
+                    )                    
                 }
-            } =>
-        {
-            let highest_card = check_straight(&_flush_cards).unwrap();
-            HandRank::StraightFlush(highest_card)
+            } else {
+                // Kiểm tra các Sảnh đồng chất khác (Straight Flush)
+                for straight_value in straight_values.iter() {
+                    let values_to_check = if *straight_value == 5 {
+                        // Trường hợp đặc biệt - 5 4 3 2 14
+                        vec![5, 4, 3, 2, 14]
+                    } else {
+                        // Trường hợp bình thường
+                        vec![*straight_value, *straight_value - 1, *straight_value - 2, *straight_value - 3, *straight_value - 4]
+                    };
+                
+                    if values_to_check.iter().all(|value| flush_cards.iter().any(|card| card.value == *value)) {
+                        return HandRank::StraightFlush(*straight_value);
+                    }
+                }
+                
+                // Không tìm thấy Straight Flush - trả về Flush thông thường
+                HandRank::Flush(
+                    flush_cards[0].value,
+                    flush_cards[1].value,
+                    flush_cards[2].value,
+                    flush_cards[3].value,
+                    flush_cards[4].value,
+                )
+            }
         }
+        // (Some(_flush_cards), _, _, _, _, _)
+        //     if {
+        //         if let Some(highest_card) = check_straight(&_flush_cards) {
+        //             true
+        //         } else {
+        //             false
+        //         }
+        //     } =>
+        // {
+        //     let highest_card = check_straight(&_flush_cards).unwrap();
+        //     HandRank::StraightFlush(highest_card)
+        // }
         (_, _, Some(_four), Some(_three), _, _) => HandRank::FourOfAKind(_four, _three),
         (_, _, Some(_four), _, 1, singles) => {
             if pairs[0] > singles[0] {
@@ -158,7 +219,7 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
             )
         }
 
-        (_, Some(high_card), _, _, _, _) => HandRank::Straight(high_card),
+        (_, Some(straight_values), _, _, _, _) => HandRank::Straight(straight_values[0]),
         (_, _, _, _, 2, singles) => HandRank::TwoPair(pairs[0], pairs[1], singles[0]),
         (_, _, _, _, 1, singles) => HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2]),
         (_, _, _, _, _, singles) => {
@@ -385,19 +446,16 @@ fn check_flush(cards: &[Card]) -> Option<Vec<Card>> {
     // Tìm kiếm chất có ít nhất 5 lá bài
     let flush_suit = suits.iter().position(|&count| count >= 5)?;
 
-    // Lấy 5 lá bài đầu tiên của chất đó
+    // Lấy cac lá bài của chất đó
     let mut flush_cards = Vec::with_capacity(5);
     for card in cards {
         if card.suit as usize == flush_suit {
             flush_cards.push(card.clone());
-            if flush_cards.len() == 5 {
-                break;
-            }
         }
     }
 
-    // Trả về 5 lá bài Flush nếu tìm thấy, hoặc None nếu không
-    if flush_cards.len() == 5 {
+    // Trả về  cac lá bài Flush nếu tìm thấy, hoặc None nếu không
+    if flush_cards.len() >= 5 {
         flush_cards.sort_by(|a, b| b.value.cmp(&a.value));
         Some(flush_cards)
     } else {
@@ -406,7 +464,7 @@ fn check_flush(cards: &[Card]) -> Option<Vec<Card>> {
 }
 
 // Hàm kiểm tra Straight
-fn check_straight(cards: &[Card]) -> Option<u8> {
+fn check_straight(cards: &[Card]) -> Option<Vec<u8>> {
     if cards.len() < 5 {
         return None; // Cần ít nhất 5 lá bài để tạo thành một Straight
     }
@@ -422,21 +480,23 @@ fn check_straight(cards: &[Card]) -> Option<u8> {
     }
 
     let mut consecutive_count = 1;
-    let mut max_value = 0;
+    let mut straight_values: Vec<u8> = Vec::new();
 
     for i in 0..values.len() - 1 {
         if values[i] + 1 == values[i + 1] {
             consecutive_count += 1;
             if consecutive_count >= 5 {
-                max_value = values[i + 1];
+                // Thêm giá trị cao nhất của Straight hiện tại vào vector
+                straight_values.push(values[i + 1]);
             }
         } else {
             consecutive_count = 1;
         }
     }
 
-    if max_value != 0 {
-        Some(max_value) // Trả về giá trị cao nhất của Straight
+    if straight_values.len() > 0 {
+        straight_values.sort_by(|a, b| b.cmp(&a));
+        Some(straight_values) // Trả về vector các giá trị Straight
     } else {
         None // Không tìm thấy Straight
     }
@@ -474,7 +534,7 @@ fn check_multiples(cards: &[Card]) -> (Option<u8>, Option<u8>, Vec<u8>, Vec<u8>)
         pairs.truncate(2);
     }
 
-    if (three.is_empty()) {
+    if three.is_empty() {
         return (four, None, pairs, singles);
     } else {
         return (four, Some(three[0] as u8), pairs, singles);
@@ -494,7 +554,7 @@ mod tests {
             Card { value: 5, suit: 0 },
             Card { value: 6, suit: 0 },
         ];
-        assert_eq!(check_straight(&cards), Some(6));
+        assert_eq!(check_straight(&cards), Some(vec![6]));
     }
 
     #[test]
@@ -519,7 +579,7 @@ mod tests {
             Card { value: 6, suit: 0 },
             Card { value: 7, suit: 0 },
         ];
-        assert_eq!(check_straight(&cards), Some(7));
+        assert_eq!(check_straight(&cards), Some(vec![7]));
     }
 
     #[test]
@@ -531,7 +591,7 @@ mod tests {
             Card { value: 13, suit: 0 },
             Card { value: 14, suit: 0 }, // Ace
         ];
-        assert_eq!(check_straight(&cards), Some(14));
+        assert_eq!(check_straight(&cards), Some(vec![14]));
     }
 
     #[test]
@@ -543,7 +603,7 @@ mod tests {
             Card { value: 5, suit: 0 },
             Card { value: 14, suit: 0 }, // Ace
         ];
-        assert_eq!(check_straight(&cards), Some(5));
+        assert_eq!(check_straight(&cards), Some(vec![5]));
     }
 
     #[test]
@@ -557,7 +617,7 @@ mod tests {
             Card { value: 7, suit: 0 },
             Card { value: 8, suit: 0 },
         ];
-        assert_eq!(check_straight(&cards), Some(8));
+        assert_eq!(check_straight(&cards), Some(vec![8, 7, 6]));
     }
 
     #[test]
@@ -571,7 +631,7 @@ mod tests {
             Card { value: 8, suit: 0 },
             Card { value: 9, suit: 0 },
         ];
-        assert_eq!(check_straight(&cards), Some(6));
+        assert_eq!(check_straight(&cards), Some(vec![6]));
     }
 
     #[test]
@@ -809,7 +869,7 @@ mod tests {
             Card { value: 14, suit: 0 }, // Ace
             Card { value: 2, suit: 1 },
         ];
-        assert_eq!(check_straight(&cards), Some(14)); // Ace as High
+        assert_eq!(check_straight(&cards), Some(vec![14])); // Ace as High
     }
 
     #[test]
@@ -959,6 +1019,45 @@ mod tests {
             HandRank::Flush(14, 8, 6, 5, 4)
         );
     }
+
+    #[test]
+    fn test_straight_flush_3() {
+        let cards = [Card { value: 8, suit: 1 }, Card { value: 8, suit: 2 }];
+        let boards = [
+            Card { value: 10, suit: 1 },
+            Card { value: 11, suit: 1 },
+            Card { value: 12, suit: 1 },
+            Card { value: 9, suit: 1 },
+            Card { value: 13, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::StraightFlush(13));
+    }
+
+    #[test]
+    fn test_royal_flush() {
+        let cards = [Card { value: 9, suit: 1 }, Card { value: 9, suit: 2 }];
+        let boards = [
+            Card { value: 10, suit: 1 },
+            Card { value: 11, suit: 1 },
+            Card { value: 12, suit: 1 },
+            Card { value: 13, suit: 1 },
+            Card { value: 14, suit: 0 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::StraightFlush(13));
+    }
+
+    #[test]
+    fn test_royal_flush_2() {
+        let cards = [Card { value: 9, suit: 1 }, Card { value: 9, suit: 2 }];
+        let boards = [
+            Card { value: 10, suit: 1 },
+            Card { value: 11, suit: 1 },
+            Card { value: 12, suit: 1 },
+            Card { value: 13, suit: 1 },
+            Card { value: 14, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::RoyalFlush);
+    }
 }
 
 fn parse_cards(input: &str) -> Vec<Card> {
@@ -994,8 +1093,21 @@ fn parse_cards(input: &str) -> Vec<Card> {
 }
 
 fn print_hand_and_rank(hand: &[Card], board: &[Card]) {
-    println!("Hand: {}", hand.iter().map(|card| card.display()).collect::<Vec<_>>().join(" "));
-    println!("Board: {}", board.iter().map(|card| card.display()).collect::<Vec<_>>().join(" "));
+    println!(
+        "Hand: {}",
+        hand.iter()
+            .map(|card| card.display())
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
+    println!(
+        "Board: {}",
+        board
+            .iter()
+            .map(|card| card.display())
+            .collect::<Vec<_>>()
+            .join(" ")
+    );
     println!("Rank: {:?}", evaluate_hand(hand, board));
     println!("----");
 }
@@ -1012,7 +1124,7 @@ fn main() {
 
         print_hand_and_rank(hand, board);
     }
-    
+
     let matches = Command::new("Poker Hand Simulator")
         .version("1.0")
         .author("Your Name")
