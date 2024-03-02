@@ -41,15 +41,15 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
     // Kiểm tra các loại bàn tay khác nhau
     let flush_cards = check_flush(&all_cards);
     let straight_values = check_straight(&all_cards);
-    let (four, three, pairs, singles) = check_multiples(&all_cards);
+    let (four, threes, pairs, singles) = check_multiples(&all_cards);
 
     // Đánh giá loại bàn tay dựa trên kết quả kiểm tra
     match (
         flush_cards,
         straight_values,
         four,
-        three,
-        pairs.len(),
+        threes,
+        pairs,
         singles,
     ) {
         (Some(flush_cards), Some(straight_values), _, _, _, _) => {
@@ -114,81 +114,38 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                 )
             }
         }
-        (_, _, Some(_four), Some(_three), _, _) => HandRank::FourOfAKind(_four, _three),
-        (_, _, Some(_four), _, 1, singles) => {
-            if pairs[0] > singles[0] {
-                HandRank::FourOfAKind(_four, pairs[0])
+        (_, _, Some(four), threes, pairs, singles) => {
+            if threes.len() == 1 {
+                HandRank::FourOfAKind(four, threes[0])
+            } else if pairs.len() == 1 {
+                HandRank::FourOfAKind(four, max(pairs[0], singles[0]))
             } else {
-                HandRank::FourOfAKind(_four, singles[0])
+                HandRank::FourOfAKind(four, *singles.iter().max().unwrap())
             }
         }
-        (_, _, Some(_four), _, _, singles) => {
-            HandRank::FourOfAKind(_four, max(max(singles[0], singles[1]), singles[2]))
-        }
-        (_, _, _, Some(three_card), _, _) => {
-            // Xác định liệu có thêm một bộ ba khác không, không giống bộ ba hiện tại
-            let other_cards = all_cards
-                .iter()
-                .filter(|c| c.value != three_card)
-                .collect::<Vec<&Card>>();
-            let has_another_three = other_cards.iter().any(|&card| {
-                other_cards
-                    .iter()
-                    .filter(|&&c| c.value == card.value)
-                    .count()
-                    == 3
-            });
-
-            if has_another_three {
-                // Tìm giá trị của bộ ba thứ hai
-                let other_three_value = other_cards
-                    .iter()
-                    .find_map(|&card| {
-                        if other_cards
-                            .iter()
-                            .filter(|&&c| c.value == card.value)
-                            .count()
-                            == 3
-                        {
-                            Some(card.value)
-                        } else {
-                            None
-                        }
-                    })
-                    .unwrap(); // Có thể sử dụng unwrap vì chúng ta biết chắc chắn có một giá trị
-
-                // Xác định xem đâu là bộ ba lớn hơn và đâu là đôi
-                let (higher, lower) = if three_card > other_three_value {
-                    (three_card, other_three_value)
+        (flush_cards, straight_values, _, threes, pairs, singles) => {
+            if threes.len() == 2 {
+                HandRank::FullHouse(threes[0], threes[1])
+            } else if threes.len() == 1 && pairs.len() > 0 {
+                HandRank::FullHouse(threes[0], pairs[0])
+            } else if !flush_cards.is_none() {
+                let flush_cards = flush_cards.unwrap_or_else(|| Vec::new());
+                HandRank::Flush(flush_cards[0].value, flush_cards[1].value, flush_cards[2].value, flush_cards[3].value, flush_cards[4].value)
+            } else if !straight_values.is_none() {
+                let straight_values = straight_values.unwrap_or_else(|| Vec::new());
+                HandRank::Straight(straight_values[0])
+            }
+            else if threes.len() == 1 {
+                HandRank::ThreeOfAKind(threes[0])
+            } else {
+                if pairs.len() == 2 {
+                    HandRank::TwoPair(pairs[0], pairs[1], singles[0])
+                } else if pairs.len() == 1 {
+                    HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2])
                 } else {
-                    (other_three_value, three_card)
-                };
-
-                HandRank::FullHouse(higher, lower)
-            } else if pairs.len() > 0 {
-                // Nếu không có bộ ba thứ hai nhưng có một đôi
-                HandRank::FullHouse(three_card, pairs[0])
-            } else {
-                // Không có đôi hoặc bộ ba thứ hai
-                HandRank::ThreeOfAKind(three_card)
+                    HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4])
+                }
             }
-        }
-        (Some(_flush_cards), _, _, _, _, _) => {
-            // Tạo Flush object từ singles
-            HandRank::Flush(
-                _flush_cards[0].value,
-                _flush_cards[1].value,
-                _flush_cards[2].value,
-                _flush_cards[3].value,
-                _flush_cards[4].value,
-            )
-        }
-
-        (_, Some(straight_values), _, _, _, _) => HandRank::Straight(straight_values[0]),
-        (_, _, _, _, 2, singles) => HandRank::TwoPair(pairs[0], pairs[1], singles[0]),
-        (_, _, _, _, 1, singles) => HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2]),
-        (_, _, _, _, _, singles) => {
-            HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4])
         }
     }
 }
@@ -467,8 +424,7 @@ fn check_straight(cards: &[Card]) -> Option<Vec<u8>> {
     }
 }
 
-// Hàm kiểm tra các bộ (Pairs, Three of a Kind, Four of a Kind)
-fn check_multiples(cards: &[Card]) -> (Option<u8>, Option<u8>, Vec<u8>, Vec<u8>) {
+fn check_multiples(cards: &[Card]) -> (Option<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
     let mut counts = [0; 15]; // Mảng đếm từ 2 đến 14
     for card in cards {
         counts[card.value as usize] += 1;
@@ -477,33 +433,24 @@ fn check_multiples(cards: &[Card]) -> (Option<u8>, Option<u8>, Vec<u8>, Vec<u8>)
     let mut four = None;
     let mut three = Vec::new();
     let mut pairs = Vec::new();
-    let mut singles = Vec::new(); // Track single cards (not part of multiple)
+    let mut singles = Vec::new();
 
     for (value, &count) in counts.iter().enumerate() {
         match count {
             4 => four = Some(value as u8),
             3 => three.push(value as u8),
             2 => pairs.push(value as u8),
-            1 => singles.push(value as u8), // Store single cards
+            1 => singles.push(value as u8),
             _ => (),
         }
     }
 
     // Sắp xếp giảm dần
-    pairs.sort_by(|a, b| b.cmp(a));
     three.sort_by(|a, b| b.cmp(a));
-
+    pairs.sort_by(|a, b| b.cmp(a));
     singles.sort_by(|a, b| b.cmp(a));
 
-    if pairs.len() > 2 {
-        pairs.truncate(2);
-    }
-
-    if three.is_empty() {
-        return (four, None, pairs, singles);
-    } else {
-        return (four, Some(three[0] as u8), pairs, singles);
-    }
+    (four, three, pairs, singles)
 }
 
 #[cfg(test)]
@@ -610,7 +557,7 @@ mod tests {
         ];
         assert_eq!(
             check_multiples(&cards),
-            (None, None, vec![], vec![10, 8, 6, 4, 2])
+            (None, vec![], vec![], vec![10, 8, 6, 4, 2])
         );
     }
 
@@ -625,7 +572,7 @@ mod tests {
         ];
         assert_eq!(
             check_multiples(&cards),
-            (None, None, vec![3], vec![10, 8, 6])
+            (None, vec![], vec![3], vec![10, 8, 6])
         );
     }
 
@@ -638,7 +585,7 @@ mod tests {
             Card { value: 6, suit: 3 },
             Card { value: 10, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (None, None, vec![6, 5], vec![10]));
+        assert_eq!(check_multiples(&cards), (None, vec![], vec![6, 5], vec![10]));
     }
 
     #[test]
@@ -651,7 +598,7 @@ mod tests {
             Card { value: 6, suit: 0 },
             Card { value: 6, suit: 1 },
         ];
-        assert_eq!(check_multiples(&cards), (None, None, vec![7, 6], vec![]));
+        assert_eq!(check_multiples(&cards), (None, vec![], vec![7, 6, 5], vec![]));
     }
 
     #[test]
@@ -665,7 +612,7 @@ mod tests {
         ];
         assert_eq!(
             check_multiples(&cards),
-            (None, Some(7), vec![], vec![10, 8])
+            (None, vec![7], vec![], vec![10, 8])
         );
     }
 
@@ -679,7 +626,7 @@ mod tests {
             Card { value: 7, suit: 1 },
             Card { value: 8, suit: 2 },
         ];
-        assert_eq!(check_multiples(&cards), (None, Some(8), vec![], vec![]));
+        assert_eq!(check_multiples(&cards), (None, vec![8, 7], vec![], vec![]));
     }
 
     #[test]
@@ -691,7 +638,7 @@ mod tests {
             Card { value: 9, suit: 3 },
             Card { value: 10, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (Some(9), None, vec![], vec![10]));
+        assert_eq!(check_multiples(&cards), (Some(9), vec![], vec![], vec![10]));
     }
 
     #[test]
@@ -703,7 +650,7 @@ mod tests {
             Card { value: 3, suit: 3 },
             Card { value: 3, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (None, Some(2), vec![3], vec![]));
+        assert_eq!(check_multiples(&cards), (None, vec![2], vec![3], vec![]));
     }
 
     #[test]
@@ -847,7 +794,7 @@ mod tests {
             Card { value: 8, suit: 0 },
             Card { value: 8, suit: 1 },
         ];
-        assert_eq!(check_multiples(&cards), (None, Some(8), vec![], vec![]));
+        assert_eq!(check_multiples(&cards), (None, vec![8, 6], vec![], vec![]));
     }
 
     #[test]
@@ -862,7 +809,7 @@ mod tests {
         ];
         assert_eq!(
             check_multiples(&cards),
-            (None, None, vec![6], vec![5, 4, 3, 2])
+            (None, vec![], vec![6], vec![5, 4, 3, 2])
         ); //Only check the pair
     }
 
