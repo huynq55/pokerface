@@ -26,29 +26,6 @@ enum HandRank {
     RoyalFlush,
 }
 
-// impl Card {
-//     fn display(&self) -> String {
-//         let value_str = match self.value {
-//             2..=10 => self.value.to_string(),
-//             11 => "J".to_string(),
-//             12 => "Q".to_string(),
-//             13 => "K".to_string(),
-//             14 => "A".to_string(),
-//             _ => panic!("Giá trị bài không hợp lệ"),
-//         };
-
-//         let suit_str = match self.suit {
-//             0 => "♥", // Cơ
-//             1 => "♦", // Rô
-//             2 => "♣", // Tép
-//             3 => "♠", // Bích
-//             _ => panic!("Chất bài không hợp lệ"),
-//         };
-
-//         format!("{}{}", value_str, suit_str)
-//     }
-// }
-
 // Một số hàm cơ bản có thể cần thiết
 
 // fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank { ... }
@@ -137,18 +114,6 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                 )
             }
         }
-        // (Some(_flush_cards), _, _, _, _, _)
-        //     if {
-        //         if let Some(highest_card) = check_straight(&_flush_cards) {
-        //             true
-        //         } else {
-        //             false
-        //         }
-        //     } =>
-        // {
-        //     let highest_card = check_straight(&_flush_cards).unwrap();
-        //     HandRank::StraightFlush(highest_card)
-        // }
         (_, _, Some(_four), Some(_three), _, _) => HandRank::FourOfAKind(_four, _three),
         (_, _, Some(_four), _, 1, singles) => {
             if pairs[0] > singles[0] {
@@ -1092,39 +1057,7 @@ fn parse_cards(input: &str) -> Vec<Card> {
         .collect()
 }
 
-// fn print_hand_and_rank(hand: &[Card], board: &[Card]) {
-//     println!(
-//         "Hand: {}",
-//         hand.iter()
-//             .map(|card| card.display())
-//             .collect::<Vec<_>>()
-//             .join(" ")
-//     );
-//     println!(
-//         "Board: {}",
-//         board
-//             .iter()
-//             .map(|card| card.display())
-//             .collect::<Vec<_>>()
-//             .join(" ")
-//     );
-//     println!("Rank: {:?}", evaluate_hand(hand, board));
-//     println!("----");
-// }
-
 fn main() {
-    // let mut rng = thread_rng(); // Create random number generator
-
-    // for _ in 0..10 {
-    //     let mut deck = create_deck();
-    //     deck.shuffle(&mut rng);
-
-    //     let hand = &deck[..2];
-    //     let board = &deck[2..7];
-
-    //     print_hand_and_rank(hand, board);
-    // }
-
     let matches = Command::new("Poker Hand Simulator")
         .version("1.0")
         .author("Your Name")
