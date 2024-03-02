@@ -346,9 +346,14 @@ fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) ->
             }
 
             if has_worse_hand {
-                if all_hands.iter().skip(1).all(|other_hand| {
-                    // Sử dụng .all()
-                    compare_hands(player_rank, evaluate_hand(other_hand, &simulated_board)) == 0
+                if all_hands.iter().skip(1).any(|other_hand| {
+                    let other_rank = evaluate_hand(other_hand, &simulated_board);
+                    compare_hands(player_rank, other_rank) == 0 && // Hai hand có rank bằng nhau
+                        all_hands.iter().skip(1).all(|stronger_hand| { 
+                            // Kiểm tra các hand khác xem có cái nào mạnh hơn không
+                            let stronger_rank = evaluate_hand(stronger_hand, &simulated_board);
+                            compare_hands(player_rank, stronger_rank) >= 0 // player_rank >= stronger_rank
+                        }) 
                 }) {
                     (0, 1, 0) // tie
                 } else {
