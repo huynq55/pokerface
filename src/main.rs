@@ -1127,7 +1127,7 @@ fn main() {
             num_players,
             win_rate * 100.0,
             tie_rate * 100.0,
-            num_players as f64 * win_rate - 1.0
+            num_players as f64 * win_rate + tie_rate - 1.0
         );
     }
 }
