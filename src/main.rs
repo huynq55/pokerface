@@ -738,6 +738,27 @@ mod tests {
     }
 
     #[test]
+    fn test_compare_hands_three_1() {
+        let hand1 = HandRank::ThreeOfAKind(10, 9, 8);
+        let hand2 = HandRank::ThreeOfAKind(10, 9, 8);
+        assert_eq!(compare_hands(hand1, hand2), 0);
+    }
+
+    #[test]
+    fn test_compare_hands_three_2() {
+        let hand1 = HandRank::ThreeOfAKind(10, 9, 6);
+        let hand2 = HandRank::ThreeOfAKind(10, 8, 6);
+        assert_eq!(compare_hands(hand1, hand2), 1);
+    }
+
+    #[test]
+    fn test_compare_hands_three_3() {
+        let hand1 = HandRank::ThreeOfAKind(10, 9, 8);
+        let hand2 = HandRank::ThreeOfAKind(10, 9, 7);
+        assert_eq!(compare_hands(hand1, hand2), 1);
+    }
+
+    #[test]
     fn test_compare_hands_flush_1() {
         let hand1 = HandRank::Flush(10, 9, 8, 7, 4);
         let hand2 = HandRank::Flush(10, 9, 8, 7, 5);
