@@ -398,6 +398,7 @@ fn check_flush(cards: &[Card]) -> Option<Vec<Card>> {
 
     // Trả về 5 lá bài Flush nếu tìm thấy, hoặc None nếu không
     if flush_cards.len() == 5 {
+        flush_cards.sort_by(|a, b| b.value.cmp(&a.value));
         Some(flush_cards)
     } else {
         None
@@ -878,6 +879,18 @@ mod tests {
     }
 
     #[test]
+    fn test_straight_ace_low() {
+        let cards = [Card { value: 14, suit: 0 }, Card { value: 3, suit: 0 }]; //Ace
+        let boards = [
+            Card { value: 4, suit: 0 },
+            Card { value: 5, suit: 0 },
+            Card { value: 2, suit: 1 },
+            Card { value: 8, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::Straight(5));
+    }
+
+    #[test]
     fn test_straight_flush_1() {
         let cards = [Card { value: 8, suit: 0 }, Card { value: 8, suit: 1 }]; //Ace
         let boards = [
@@ -928,6 +941,22 @@ mod tests {
         assert_eq!(
             evaluate_hand(&cards, &boards),
             HandRank::HighCard(13, 11, 9, 7, 6)
+        );
+    }
+
+    #[test]
+    fn test_flush_1() {
+        let cards = [Card { value: 5, suit: 1 }, Card { value: 8, suit: 1 }];
+        let boards = [
+            Card { value: 8, suit: 2 },
+            Card { value: 14, suit: 0 },
+            Card { value: 4, suit: 1 },
+            Card { value: 14, suit: 1 },
+            Card { value: 6, suit: 1 },
+        ];
+        assert_eq!(
+            evaluate_hand(&cards, &boards),
+            HandRank::Flush(14, 8, 6, 5, 4)
         );
     }
 }
