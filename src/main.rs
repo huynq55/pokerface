@@ -138,9 +138,12 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
             else if threes.len() == 1 {
                 HandRank::ThreeOfAKind(threes[0])
             } else {
-                if pairs.len() == 2 {
-                    HandRank::TwoPair(pairs[0], pairs[1], singles[0])
-                } else if pairs.len() == 1 {
+                if pairs.len() == 3 {
+                    HandRank::TwoPair(pairs[0], pairs[1], max(pairs[2], singles[0]))
+                } else if pairs.len() == 2 {
+                    HandRank::TwoPair(pairs[0], pairs[1], *singles.iter().max().unwrap())
+                }
+                 else if pairs.len() == 1 {
                     HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2])
                 } else {
                     HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4])
