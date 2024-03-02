@@ -1,4 +1,4 @@
-use std::cmp::max;
+use std::cmp::{max, Ordering};
 
 use clap::{Arg, Command};
 use rand::seq::SliceRandom; // Sử dụng crate rand để xáo bài
@@ -17,7 +17,7 @@ enum HandRank {
     HighCard(u8, u8, u8, u8, u8),
     OnePair(u8, u8, u8, u8),
     TwoPair(u8, u8, u8),
-    ThreeOfAKind(u8),
+    ThreeOfAKind(u8, u8, u8),
     Straight(u8),
     Flush(u8, u8, u8, u8, u8),
     FullHouse(u8, u8),
@@ -44,14 +44,7 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
     let (four, threes, pairs, singles) = check_multiples(&all_cards);
 
     // Đánh giá loại bàn tay dựa trên kết quả kiểm tra
-    match (
-        flush_cards,
-        straight_values,
-        four,
-        threes,
-        pairs,
-        singles,
-    ) {
+    match (flush_cards, straight_values, four, threes, pairs, singles) {
         (Some(flush_cards), Some(straight_values), _, _, _, _) => {
             if straight_values.contains(&14) {
                 // Kiểm tra sự tồn tại của 10, J, Q, K, A
@@ -71,14 +64,23 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                             vec![5, 4, 3, 2, 14]
                         } else {
                             // Trường hợp bình thường
-                            vec![*straight_value, *straight_value - 1, *straight_value - 2, *straight_value - 3, *straight_value - 4]
+                            vec![
+                                *straight_value,
+                                *straight_value - 1,
+                                *straight_value - 2,
+                                *straight_value - 3,
+                                *straight_value - 4,
+                            ]
                         };
-                    
-                        if values_to_check.iter().all(|value| flush_cards.iter().any(|card| card.value == *value)) {
+
+                        if values_to_check
+                            .iter()
+                            .all(|value| flush_cards.iter().any(|card| card.value == *value))
+                        {
                             return HandRank::StraightFlush(*straight_value);
                         }
                     }
-                    
+
                     // Không tìm thấy Straight Flush - trả về Flush thông thường
                     HandRank::Flush(
                         flush_cards[0].value,
@@ -86,7 +88,7 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                         flush_cards[2].value,
                         flush_cards[3].value,
                         flush_cards[4].value,
-                    )                    
+                    )
                 }
             } else {
                 // Kiểm tra các Sảnh đồng chất khác (Straight Flush)
@@ -96,14 +98,23 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                         vec![5, 4, 3, 2, 14]
                     } else {
                         // Trường hợp bình thường
-                        vec![*straight_value, *straight_value - 1, *straight_value - 2, *straight_value - 3, *straight_value - 4]
+                        vec![
+                            *straight_value,
+                            *straight_value - 1,
+                            *straight_value - 2,
+                            *straight_value - 3,
+                            *straight_value - 4,
+                        ]
                     };
-                
-                    if values_to_check.iter().all(|value| flush_cards.iter().any(|card| card.value == *value)) {
+
+                    if values_to_check
+                        .iter()
+                        .all(|value| flush_cards.iter().any(|card| card.value == *value))
+                    {
                         return HandRank::StraightFlush(*straight_value);
                     }
                 }
-                
+
                 // Không tìm thấy Straight Flush - trả về Flush thông thường
                 HandRank::Flush(
                     flush_cards[0].value,
@@ -130,20 +141,24 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
                 HandRank::FullHouse(threes[0], pairs[0])
             } else if !flush_cards.is_none() {
                 let flush_cards = flush_cards.unwrap_or_else(|| Vec::new());
-                HandRank::Flush(flush_cards[0].value, flush_cards[1].value, flush_cards[2].value, flush_cards[3].value, flush_cards[4].value)
+                HandRank::Flush(
+                    flush_cards[0].value,
+                    flush_cards[1].value,
+                    flush_cards[2].value,
+                    flush_cards[3].value,
+                    flush_cards[4].value,
+                )
             } else if !straight_values.is_none() {
                 let straight_values = straight_values.unwrap_or_else(|| Vec::new());
                 HandRank::Straight(straight_values[0])
-            }
-            else if threes.len() == 1 {
-                HandRank::ThreeOfAKind(threes[0])
+            } else if threes.len() == 1 {
+                HandRank::ThreeOfAKind(threes[0], singles[0], singles[1])
             } else {
                 if pairs.len() == 3 {
                     HandRank::TwoPair(pairs[0], pairs[1], max(pairs[2], singles[0]))
                 } else if pairs.len() == 2 {
                     HandRank::TwoPair(pairs[0], pairs[1], *singles.iter().max().unwrap())
-                }
-                 else if pairs.len() == 1 {
+                } else if pairs.len() == 1 {
                     HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2])
                 } else {
                     HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4])
@@ -215,13 +230,22 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
                     0
                 }
             }
-            HandRank::ThreeOfAKind(card1) => {
-                if let HandRank::ThreeOfAKind(card2) = hand2 {
-                    card1.cmp(&card2) as i32
+            HandRank::ThreeOfAKind(card1, kicker1_1, kicker1_2) => {
+                if let HandRank::ThreeOfAKind(card2, kicker2_1, kicker2_2) = hand2 {
+                    match card1.cmp(&card2) {
+                        Ordering::Equal => { 
+                            // Compare the highest kickers first
+                            match kicker1_1.cmp(&kicker2_1) {
+                                Ordering::Equal => kicker1_2.cmp(&kicker2_2) as i32, // Then compare the second kicker
+                                other_ordering => other_ordering as i32,
+                            }
+                        }
+                        other_ordering => other_ordering as i32,
+                    }
                 } else {
                     0
                 }
-            }
+            }            
             HandRank::TwoPair(high_pair1, low_pair1, kicker1) => {
                 if let HandRank::TwoPair(high_pair2, low_pair2, kicker2) = hand2 {
                     match high_pair1.cmp(&high_pair2) {
@@ -290,10 +314,10 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
 }
 
 // Hàm chính để mô phỏng và tính toán xác suất
-fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) -> (f64, f64) {
+fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) -> (f64, f64, f64) {
     let total_simulations = 1000000; // Số lần mô phỏng
 
-    let (total_wins, total_losses) = (0..total_simulations)
+    let (total_wins, total_ties, total_losses) = (0..total_simulations)
         .into_par_iter() // Biến đổi sang Parallel Iterator
         .map(|_| {
             let mut deck = create_deck();
@@ -322,24 +346,30 @@ fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) ->
             }
 
             if has_worse_hand {
-                (0, 1)
+                if all_hands.iter().skip(1).all(|other_hand| {
+                    // Sử dụng .all()
+                    compare_hands(player_rank, evaluate_hand(other_hand, &simulated_board)) == 0
+                }) {
+                    (0, 1, 0) // tie
+                } else {
+                    (0, 0, 1) // loss
+                }
             } else {
-                (1, 0)
+                (1, 0, 0) // win
             }
         })
         .reduce(
-            || (0, 0), // Giá trị khởi tạo cho mỗi phân đoạn
-            |(wins_a, losses_a), (wins_b, losses_b)| {
-                // Kết hợp hai phần kết quả
-                (wins_a + wins_b, losses_a + losses_b)
+            || (0, 0, 0), // Initial state for each segment
+            |(wins_a, ties_a, losses_a), (wins_b, ties_b, losses_b)| {
+                (wins_a + wins_b, ties_a + ties_b, losses_a + losses_b)
             },
         );
 
-    // Tính tỷ lệ thắng thua
     let win_rate = total_wins as f64 / total_simulations as f64;
+    let tie_rate = total_ties as f64 / total_simulations as f64;
     let loss_rate = total_losses as f64 / total_simulations as f64;
 
-    (win_rate, loss_rate)
+    (win_rate, tie_rate, loss_rate)
 }
 
 // Hàm này sẽ loại bỏ các lá bài đã biết khỏi bộ bài
@@ -588,7 +618,10 @@ mod tests {
             Card { value: 6, suit: 3 },
             Card { value: 10, suit: 0 },
         ];
-        assert_eq!(check_multiples(&cards), (None, vec![], vec![6, 5], vec![10]));
+        assert_eq!(
+            check_multiples(&cards),
+            (None, vec![], vec![6, 5], vec![10])
+        );
     }
 
     #[test]
@@ -601,7 +634,10 @@ mod tests {
             Card { value: 6, suit: 0 },
             Card { value: 6, suit: 1 },
         ];
-        assert_eq!(check_multiples(&cards), (None, vec![], vec![7, 6, 5], vec![]));
+        assert_eq!(
+            check_multiples(&cards),
+            (None, vec![], vec![7, 6, 5], vec![])
+        );
     }
 
     #[test]
@@ -720,6 +756,20 @@ mod tests {
         let hand1 = HandRank::OnePair(10, 9, 8, 7);
         let hand2 = HandRank::OnePair(10, 9, 8, 6);
         assert_eq!(compare_hands(hand1, hand2), 1);
+    }
+
+    #[test]
+    fn test_compare_hands_tie_1() {
+        let hand1 = HandRank::Flush(10, 9, 8, 7, 4);
+        let hand2 = HandRank::Flush(10, 9, 8, 7, 4);
+        assert_eq!(compare_hands(hand1, hand2), 0);
+    }
+
+    #[test]
+    fn test_compare_hands_tie_2() {
+        let hand1 = HandRank::HighCard(10, 9, 8, 7, 4);
+        let hand2 = HandRank::HighCard(10, 9, 8, 7, 4);
+        assert_eq!(compare_hands(hand1, hand2), 0);
     }
 
     #[test]
@@ -1048,12 +1098,14 @@ fn main() {
     let hand_array = [hand_vec[0], hand_vec[1]]; // Chuyển đổi Vec<Card> thành [Card; 2]
 
     for num_players in 2..=9 {
-        let (win_rate, _) = simulate_poker_hand(hand_array, board_vec.clone(), num_players);
+        let (win_rate, tie_rate, _) =
+            simulate_poker_hand(hand_array, board_vec.clone(), num_players);
 
         println!(
-            "Number of players: {}. Simulated Win rate: {:.2}%, EV 1$ bet {:.2}$",
+            "Number of players: {}. Simulated Win rate: {:.2}%, Simulated Tie rate: {:.2}%, EV 1$ bet {:.2}$",
             num_players,
             win_rate * 100.0,
+            tie_rate * 100.0,
             num_players as f64 * win_rate - 1.0
         );
     }
