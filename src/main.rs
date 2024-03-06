@@ -6,21 +6,33 @@ use std::{cmp::max, collections::HashMap};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Card {
+    // value from 2 to 14, representing 2 to 10 and Jack, Queen, King, Ace
     value: u8,
+    // suit from 0 to 3, representing 4 suits
     suit: u8,
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 enum HandRank {
+    // HighCard has 5 different values, sorted from highest to lowest
     HighCard(u8, u8, u8, u8, u8),
+    // OnePair has 1 pair and 3 kickers, sorted from highest to lowest
     OnePair(u8, u8, u8, u8),
+    // TwoPair has 2 pairs and 1 kicker, sorted from highest to lowest
     TwoPair(u8, u8, u8),
+    // ThreeOfAKind has 1 triple and 2 kickers, sorted from highest to lowest
     ThreeOfAKind(u8, u8, u8),
+    // Straight has 1 high card
     Straight(u8),
+    // Flush has 5 different values with the same suit, sorted from highest to lowest
     Flush(u8, u8, u8, u8, u8),
+    // FullHouse has 1 triple and 1 pair
     FullHouse(u8, u8),
+    // FourOfAKind has 1 quadruple and 1 kicker
     FourOfAKind(u8, u8),
+    // StraightFlush has 1 high card, all cards with the same suit
     StraightFlush(u8),
+    // RoyalFlush is a special case of StraightFlush, with the highest card being Ace
     RoyalFlush,
 }
 
