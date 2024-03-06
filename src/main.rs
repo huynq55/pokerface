@@ -559,6 +559,7 @@ mod tests {
         ];
         assert_eq!(evaluate_hand(&cards, &boards), HandRank::FullHouse(3, 2));
     }
+
     #[test]
     fn test_full_house_2() {
         let cards = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
@@ -569,6 +570,20 @@ mod tests {
         ];
         assert_eq!(evaluate_hand(&cards, &boards), HandRank::FullHouse(2, 3));
     }
+
+    #[test]
+    fn test_full_house_3() {
+        let cards = [Card { value: 2, suit: 0 }, Card { value: 2, suit: 1 }];
+        let boards = [
+            Card { value: 2, suit: 2 },
+            Card { value: 3, suit: 0 },
+            Card { value: 3, suit: 1 },
+            Card { value: 4, suit: 0 },
+            Card { value: 4, suit: 1 },
+        ];
+        assert_eq!(evaluate_hand(&cards, &boards), HandRank::FullHouse(2, 4));
+    }
+
     #[test]
     fn test_straight_flush() {
         let cards = [Card { value: 2, suit: 0 }, Card { value: 3, suit: 0 }];
@@ -804,7 +819,7 @@ mod tests {
     }
 
     #[test]
-    fn test_full_house_3() {
+    fn test_full_house_4() {
         let cards = [Card { value: 5, suit: 0 }, Card { value: 5, suit: 1 }];
         let boards = [
             Card { value: 5, suit: 2 },
