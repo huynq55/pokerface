@@ -173,144 +173,66 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
 // fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 { ... }
 // Hàm so sánh hai bàn tay
 fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
-    if hand1 > hand2 {
-        1 // hand1 thắng
-    } else if hand1 < hand2 {
-        -1 // hand2 thắng
-    } else {
-        // Trường hợp cả hai bàn tay có cùng xếp hạng
-        match hand1 {
-            HandRank::RoyalFlush => 0, // Hòa khi cả hai đều là Royal Flush
-            HandRank::StraightFlush(high_card1) => {
-                if let HandRank::StraightFlush(high_card2) = hand2 {
-                    high_card1.cmp(&high_card2) as i32
-                } else {
-                    0 // Không thể xảy ra, chỉ để đảm bảo mã không lỗi
+    use HandRank::*;
+
+    match (hand1, hand2) {
+        (RoyalFlush, RoyalFlush) => 0,
+        (StraightFlush(high_card1), StraightFlush(high_card2)) => high_card1.cmp(&high_card2) as i32,
+        (FourOfAKind(four1, kicker1), FourOfAKind(four2, kicker2)) => {
+            let cards1 = vec![four1, kicker1];
+            let cards2 = vec![four2, kicker2];
+            compare_cards(&cards1, &cards2)
+        }
+        (FullHouse(three1, pair1), FullHouse(three2, pair2)) => {
+            let cards1 = vec![three1, pair1];
+            let cards2 = vec![three2, pair2];
+            compare_cards(&cards1, &cards2)
+        }
+        (Flush(a1, b1, c1, d1, e1), Flush(a2, b2, c2, d2, e2)) => {
+            let cards1 = vec![a1, b1, c1, d1, e1];
+            let cards2 = vec![a2, b2, c2, d2, e2];
+            compare_cards(&cards1, &cards2)
+        }
+        (Straight(high_card1), Straight(high_card2)) => high_card1.cmp(&high_card2) as i32,
+        (ThreeOfAKind(three1, kicker1_1, kicker1_2), ThreeOfAKind(three2, kicker2_1, kicker2_2)) => {
+            let cards1 = vec![three1, kicker1_1, kicker1_2];
+            let cards2 = vec![three2, kicker2_1, kicker2_2];
+            compare_cards(&cards1, &cards2)
+        }
+        (TwoPair(high_pair1, low_pair1, kicker1), TwoPair(high_pair2, low_pair2, kicker2)) => {
+            let cards1 = vec![high_pair1, low_pair1, kicker1];
+            let cards2 = vec![high_pair2, low_pair2, kicker2];
+            compare_cards(&cards1, &cards2)
+        }
+        (OnePair(pair1, kicker1_1, kicker1_2, kicker1_3), OnePair(pair2, kicker2_1, kicker2_2, kicker2_3)) => {
+            let cards1 = vec![pair1, kicker1_1, kicker1_2, kicker1_3];
+            let cards2 = vec![pair2, kicker2_1, kicker2_2, kicker2_3];
+            compare_cards(&cards1, &cards2)
+        }
+        (HighCard(a1, b1, c1, d1, e1), HighCard(a2, b2, c2, d2, e2)) => {
+            let cards1 = vec![a1, b1, c1, d1, e1];
+            let cards2 = vec![a2, b2, c2, d2, e2];
+            compare_cards(&cards1, &cards2)
+        }
+        (_, _) => hand1.partial_cmp(&hand2).unwrap() as i32,
+    }
+}
+
+fn compare_cards(cards1: &[u8], cards2: &[u8]) -> i32 {
+    let mut iter1 = cards1.iter();
+    let mut iter2 = cards2.iter();
+
+    loop {
+        match (iter1.next(), iter2.next()) {
+            (Some(card1), Some(card2)) => {
+                let cmp = card1.cmp(card2);
+                if cmp != std::cmp::Ordering::Equal {
+                    return cmp as i32;
                 }
             }
-            HandRank::FourOfAKind(card1, kicker1) => {
-                if let HandRank::FourOfAKind(card2, kicker2) = hand2 {
-                    match card1.cmp(&card2) {
-                        std::cmp::Ordering::Equal => kicker1.cmp(&kicker2) as i32,
-                        other => other as i32,
-                    }
-                } else {
-                    0
-                }
-            }
-            HandRank::FullHouse(three1, pair1) => {
-                if let HandRank::FullHouse(three2, pair2) = hand2 {
-                    match three1.cmp(&three2) {
-                        std::cmp::Ordering::Equal => pair1.cmp(&pair2) as i32,
-                        other => other as i32,
-                    }
-                } else {
-                    0
-                }
-            }
-            HandRank::Flush(a1, b1, c1, d1, e1) => {
-                if let HandRank::Flush(a2, b2, c2, d2, e2) = hand2 {
-                    if a1 != a2 {
-                        return a1.cmp(&a2) as i32;
-                    } else if b1 != b2 {
-                        return b1.cmp(&b2) as i32;
-                    } else if c1 != c2 {
-                        return c1.cmp(&c2) as i32;
-                    } else if d1 != d2 {
-                        return d1.cmp(&d2) as i32;
-                    } else {
-                        return e1.cmp(&e2) as i32;
-                    }
-                } else {
-                    0
-                }
-            }
-            HandRank::Straight(high_card1) => {
-                if let HandRank::Straight(high_card2) = hand2 {
-                    high_card1.cmp(&high_card2) as i32
-                } else {
-                    0
-                }
-            }
-            HandRank::ThreeOfAKind(card1, kicker1_1, kicker1_2) => {
-                if let HandRank::ThreeOfAKind(card2, kicker2_1, kicker2_2) = hand2 {
-                    match card1.cmp(&card2) {
-                        Ordering::Equal => { 
-                            // Compare the highest kickers first
-                            match kicker1_1.cmp(&kicker2_1) {
-                                Ordering::Equal => kicker1_2.cmp(&kicker2_2) as i32, // Then compare the second kicker
-                                other_ordering => other_ordering as i32,
-                            }
-                        }
-                        other_ordering => other_ordering as i32,
-                    }
-                } else {
-                    0
-                }
-            }            
-            HandRank::TwoPair(high_pair1, low_pair1, kicker1) => {
-                if let HandRank::TwoPair(high_pair2, low_pair2, kicker2) = hand2 {
-                    match high_pair1.cmp(&high_pair2) {
-                        std::cmp::Ordering::Equal => match low_pair1.cmp(&low_pair2) {
-                            std::cmp::Ordering::Equal => kicker1.cmp(&kicker2) as i32,
-                            other => other as i32,
-                        },
-                        other => other as i32,
-                    }
-                } else {
-                    0
-                }
-            }
-            HandRank::OnePair(pair1, kicker1, kicker2, kicker3) => {
-                if let HandRank::OnePair(pair2, kicker2_1, kicker2_2, kicker2_3) = hand2 {
-                    // 1. So sánh giá trị pair:
-                    match pair1.cmp(&pair2) {
-                        std::cmp::Ordering::Greater => return 1,
-                        std::cmp::Ordering::Less => return -1,
-                        std::cmp::Ordering::Equal => {
-                            // 2. Nếu pair bằng nhau, so sánh kicker1:
-                            match kicker1.cmp(&kicker2_1) {
-                                std::cmp::Ordering::Greater => return 1,
-                                std::cmp::Ordering::Less => return -1,
-                                std::cmp::Ordering::Equal => {
-                                    // 3. Nếu kicker1 bằng nhau, so sánh kicker2:
-                                    match kicker2.cmp(&kicker2_2) {
-                                        std::cmp::Ordering::Greater => return 1,
-                                        std::cmp::Ordering::Less => return -1,
-                                        std::cmp::Ordering::Equal => {
-                                            // 4. Nếu kicker2 bằng nhau, so sánh kicker3:
-                                            match kicker3.cmp(&kicker2_3) {
-                                                std::cmp::Ordering::Greater => return 1,
-                                                std::cmp::Ordering::Less => return -1,
-                                                std::cmp::Ordering::Equal => return 0, // Hòa
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    0
-                }
-            }
-            HandRank::HighCard(a1, b1, c1, d1, e1) => {
-                if let HandRank::Flush(a2, b2, c2, d2, e2) = hand2 {
-                    if a1 != a2 {
-                        return a1.cmp(&a2) as i32;
-                    } else if b1 != b2 {
-                        return b1.cmp(&b2) as i32;
-                    } else if c1 != c2 {
-                        return c1.cmp(&c2) as i32;
-                    } else if d1 != d2 {
-                        return d1.cmp(&d2) as i32;
-                    } else {
-                        return e1.cmp(&e2) as i32;
-                    }
-                } else {
-                    0
-                }
-            }
+            (None, None) => return 0,
+            (Some(_), None) => return 1,
+            (None, Some(_)) => return -1,
         }
     }
 }
