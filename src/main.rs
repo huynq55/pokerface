@@ -65,7 +65,7 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
             // Cases 2 and 3: Four of a Kind with remaining kickers
             let potential_kickers = pairs.iter().copied().chain(singles.iter().copied());
             let best_kicker = potential_kickers.max().unwrap_or(0);
-            return HandRank::FourOfAKind(four_value, best_kicker); 
+            return HandRank::FourOfAKind(four_value, best_kicker);
         }
     } else if threes.len() == 2 || (threes.len() == 1 && pairs.len() >= 1) {
         let full_house_values = if threes.len() == 2 {
@@ -99,7 +99,9 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
 
     match (hand1, hand2) {
         (RoyalFlush, RoyalFlush) => 0,
-        (StraightFlush(high_card1), StraightFlush(high_card2)) => high_card1.cmp(&high_card2) as i32,
+        (StraightFlush(high_card1), StraightFlush(high_card2)) => {
+            high_card1.cmp(&high_card2) as i32
+        }
         (FourOfAKind(four1, kicker1), FourOfAKind(four2, kicker2)) => {
             let cards1 = vec![four1, kicker1];
             let cards2 = vec![four2, kicker2];
@@ -116,7 +118,10 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
             compare_cards(&cards1, &cards2)
         }
         (Straight(high_card1), Straight(high_card2)) => high_card1.cmp(&high_card2) as i32,
-        (ThreeOfAKind(three1, kicker1_1, kicker1_2), ThreeOfAKind(three2, kicker2_1, kicker2_2)) => {
+        (
+            ThreeOfAKind(three1, kicker1_1, kicker1_2),
+            ThreeOfAKind(three2, kicker2_1, kicker2_2),
+        ) => {
             let cards1 = vec![three1, kicker1_1, kicker1_2];
             let cards2 = vec![three2, kicker2_1, kicker2_2];
             compare_cards(&cards1, &cards2)
@@ -126,7 +131,10 @@ fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
             let cards2 = vec![high_pair2, low_pair2, kicker2];
             compare_cards(&cards1, &cards2)
         }
-        (OnePair(pair1, kicker1_1, kicker1_2, kicker1_3), OnePair(pair2, kicker2_1, kicker2_2, kicker2_3)) => {
+        (
+            OnePair(pair1, kicker1_1, kicker1_2, kicker1_3),
+            OnePair(pair2, kicker2_1, kicker2_2, kicker2_3),
+        ) => {
             let cards1 = vec![pair1, kicker1_1, kicker1_2, kicker1_3];
             let cards2 = vec![pair2, kicker2_1, kicker2_2, kicker2_3];
             compare_cards(&cards1, &cards2)
@@ -161,7 +169,7 @@ fn compare_cards(cards1: &[u8], cards2: &[u8]) -> i32 {
 
 // Hàm chính để mô phỏng và tính toán xác suất
 fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) -> (f64, f64, f64) {
-    let total_simulations = 1000000; // Số lần mô phỏng
+    let total_simulations = 20000000; // Số lần mô phỏng
 
     let (total_wins, total_ties, total_losses) = (0..total_simulations)
         .into_par_iter() // Biến đổi sang Parallel Iterator
@@ -181,32 +189,31 @@ fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) ->
             }
 
             let player_rank = evaluate_hand(&hand, &simulated_board);
-            let mut has_worse_hand = false;
+
+            let mut definitively_loses = false;
+            let mut has_tie = false;
 
             for other_hand in all_hands.iter().skip(1) {
                 let other_rank = evaluate_hand(other_hand, &simulated_board);
-                if compare_hands(player_rank, other_rank) != 1 {
-                    has_worse_hand = true;
-                    break;
+                let comparison_result = compare_hands(player_rank, other_rank);
+
+                if comparison_result == -1 {
+                    // Player hand decisively loses
+                    definitively_loses = true;
+                    break; // No need to continue as we know it's a clear loss
+                } else if comparison_result == 0 {
+                    // Player hand ties
+                    has_tie = true;
                 }
+                // Otherwise, player hand is stronger - no action needed
             }
 
-            if has_worse_hand {
-                if all_hands.iter().skip(1).any(|other_hand| {
-                    let other_rank = evaluate_hand(other_hand, &simulated_board);
-                    compare_hands(player_rank, other_rank) == 0 && // Hai hand có rank bằng nhau
-                        all_hands.iter().skip(1).all(|stronger_hand| { 
-                            // Kiểm tra các hand khác xem có cái nào mạnh hơn không
-                            let stronger_rank = evaluate_hand(stronger_hand, &simulated_board);
-                            compare_hands(player_rank, stronger_rank) >= 0 // player_rank >= stronger_rank
-                        }) 
-                }) {
-                    (0, 1, 0) // tie
-                } else {
-                    (0, 0, 1) // loss
-                }
+            if definitively_loses {
+                (0, 0, 1) // Loss
+            } else if has_tie {
+                (0, 1, 0) // Tie
             } else {
-                (1, 0, 0) // win
+                (1, 0, 0) // Win
             }
         })
         .reduce(
@@ -962,7 +969,7 @@ fn main() {
 
     let hand_array = [hand_vec[0], hand_vec[1]]; // Chuyển đổi Vec<Card> thành [Card; 2]
 
-    for num_players in 2..=9 {
+    for num_players in 2..=5 {
         let (win_rate, tie_rate, _) =
             simulate_poker_hand(hand_array, board_vec.clone(), num_players);
 
