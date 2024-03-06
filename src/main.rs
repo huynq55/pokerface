@@ -169,7 +169,7 @@ fn compare_cards(cards1: &[u8], cards2: &[u8]) -> i32 {
 
 // Hàm chính để mô phỏng và tính toán xác suất
 fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) -> (f64, f64, f64) {
-    let total_simulations = 20000000; // Số lần mô phỏng
+    let total_simulations = 1000000; // Số lần mô phỏng
 
     let (total_wins, total_ties, total_losses) = (0..total_simulations)
         .into_par_iter() // Biến đổi sang Parallel Iterator
