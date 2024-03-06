@@ -4,6 +4,8 @@ use clap::{Arg, Command};
 use rand::seq::SliceRandom; // Sử dụng crate rand để xáo bài
 use rayon::prelude::*;
 
+use std::collections::HashMap;
+
 // Định nghĩa cấu trúc cho một lá bài và bàn tay
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Card {
@@ -395,28 +397,21 @@ fn create_deck() -> Vec<Card> {
 
 // Hàm kiểm tra Flush
 fn check_flush(cards: &[Card]) -> Option<Vec<Card>> {
-    // Tạo một mảng để đếm số lượng lá bài cho mỗi chất
-    let mut suits = [0; 4]; // Một mảng với 4 phần tử, tương ứng với 4 chất
+    let mut suits = HashMap::new();
 
-    // Đếm số lá bài cho mỗi chất
     for card in cards {
-        suits[card.suit as usize] += 1;
+        *suits.entry(card.suit).or_insert(0) += 1;
     }
 
-    // Tìm kiếm chất có ít nhất 5 lá bài
-    let flush_suit = suits.iter().position(|&count| count >= 5)?;
+    let flush_suit = suits.into_iter().find(|(_, count)| *count >= 5)?;
+    let mut flush_cards: Vec<Card> = cards
+        .iter()
+        .filter(|card| card.suit == flush_suit.0)
+        .cloned()
+        .collect();
 
-    // Lấy cac lá bài của chất đó
-    let mut flush_cards = Vec::with_capacity(5);
-    for card in cards {
-        if card.suit as usize == flush_suit {
-            flush_cards.push(card.clone());
-        }
-    }
-
-    // Trả về  cac lá bài Flush nếu tìm thấy, hoặc None nếu không
     if flush_cards.len() >= 5 {
-        flush_cards.sort_by(|a, b| b.value.cmp(&a.value));
+        flush_cards.sort_by(|a, b| b.value.cmp(&a.value)); // Sắp xếp giảm dần theo giá trị
         Some(flush_cards)
     } else {
         None
