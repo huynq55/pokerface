@@ -1,17 +1,15 @@
 use clap::{Arg, Command};
-use rand::seq::SliceRandom; // Sử dụng crate rand để xáo bài
+use rand::seq::SliceRandom;
 use rayon::prelude::*;
 
 use std::{cmp::max, collections::HashMap};
 
-// Định nghĩa cấu trúc cho một lá bài và bàn tay
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Card {
-    value: u8, // Giá trị của lá bài, 2 đến 14, với 11 là J, 12 là Q, v.v.
-    suit: u8,  // Chất của lá bài, có thể định nghĩa từ 0 đến 3
+    value: u8,
+    suit: u8,
 }
 
-// Định nghĩa các loại bàn tay
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 enum HandRank {
     HighCard(u8, u8, u8, u8, u8),
@@ -26,16 +24,11 @@ enum HandRank {
     RoyalFlush,
 }
 
-// Một số hàm cơ bản có thể cần thiết
-
-// fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank { ... }
-// Hàm đánh giá bàn tay
 fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
     let mut all_cards = hand.to_vec();
     all_cards.extend_from_slice(board);
     all_cards.sort_by(|a, b| a.value.cmp(&b.value));
 
-    // 1. Check for Straight Flush and Royal Flush
     if let Some(flush_cards) = check_flush(&all_cards) {
         let straight_values = check_straight(&flush_cards); // Only check for straight within flush suit
         if let Some(straight_values) = straight_values {
@@ -54,15 +47,12 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         );
     }
 
-    // 2. Check for Four of a Kind, Full House, Three of a Kind
     let (fours, threes, pairs, singles) = check_multiples(&all_cards);
 
     if let Some(four_value) = fours {
         if threes.len() == 1 {
-            // Case 1: Four of a Kind and a Three of a Kind
             return HandRank::FourOfAKind(four_value, threes[0]);
         } else {
-            // Cases 2 and 3: Four of a Kind with remaining kickers
             let potential_kickers = pairs.iter().copied().chain(singles.iter().copied());
             let best_kicker = potential_kickers.max().unwrap_or(0);
             return HandRank::FourOfAKind(four_value, best_kicker);
@@ -78,7 +68,6 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         return HandRank::ThreeOfAKind(threes[0], singles[0], singles[1]);
     }
 
-    // 3. Check for Straight
     if let Some(straight_values) = check_straight(&all_cards) {
         return HandRank::Straight(*straight_values.iter().max().unwrap());
     }
@@ -92,8 +81,6 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
     }
 }
 
-// fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 { ... }
-// Hàm so sánh hai bàn tay
 fn compare_hands(hand1: HandRank, hand2: HandRank) -> i32 {
     use HandRank::*;
 
@@ -167,12 +154,11 @@ fn compare_cards(cards1: &[u8], cards2: &[u8]) -> i32 {
     }
 }
 
-// Hàm chính để mô phỏng và tính toán xác suất
 fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) -> (f64, f64, f64) {
-    let total_simulations = 1000000; // Số lần mô phỏng
+    let total_simulations = 1000000;
 
     let (total_wins, total_ties, total_losses) = (0..total_simulations)
-        .into_par_iter() // Biến đổi sang Parallel Iterator
+        .into_par_iter()
         .map(|_| {
             let mut deck = create_deck();
             remove_known_cards(&mut deck, &hand, &board);
@@ -198,26 +184,23 @@ fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) ->
                 let comparison_result = compare_hands(player_rank, other_rank);
 
                 if comparison_result == -1 {
-                    // Player hand decisively loses
                     definitively_loses = true;
-                    break; // No need to continue as we know it's a clear loss
+                    break;
                 } else if comparison_result == 0 {
-                    // Player hand ties
                     has_tie = true;
                 }
-                // Otherwise, player hand is stronger - no action needed
             }
 
             if definitively_loses {
-                (0, 0, 1) // Loss
+                (0, 0, 1)
             } else if has_tie {
-                (0, 1, 0) // Tie
+                (0, 1, 0)
             } else {
-                (1, 0, 0) // Win
+                (1, 0, 0)
             }
         })
         .reduce(
-            || (0, 0, 0), // Initial state for each segment
+            || (0, 0, 0),
             |(wins_a, ties_a, losses_a), (wins_b, ties_b, losses_b)| {
                 (wins_a + wins_b, ties_a + ties_b, losses_a + losses_b)
             },
@@ -230,12 +213,10 @@ fn simulate_poker_hand(hand: [Card; 2], board: Vec<Card>, num_players: usize) ->
     (win_rate, tie_rate, loss_rate)
 }
 
-// Hàm này sẽ loại bỏ các lá bài đã biết khỏi bộ bài
 fn remove_known_cards(deck: &mut Vec<Card>, hand: &[Card; 2], board: &Vec<Card>) {
     deck.retain(|card| !hand.contains(card) && !board.contains(card));
 }
 
-// Tạo một bộ bài mới
 fn create_deck() -> Vec<Card> {
     let mut deck = Vec::new();
     for suit in 0..4 {
@@ -246,7 +227,6 @@ fn create_deck() -> Vec<Card> {
     deck
 }
 
-// Hàm kiểm tra Flush
 fn check_flush(cards: &[Card]) -> Option<Vec<Card>> {
     let mut suits = HashMap::new();
 
@@ -269,20 +249,18 @@ fn check_flush(cards: &[Card]) -> Option<Vec<Card>> {
     }
 }
 
-// Hàm kiểm tra Straight
 fn check_straight(cards: &[Card]) -> Option<Vec<u8>> {
     if cards.len() < 5 {
-        return None; // Cần ít nhất 5 lá bài để tạo thành một Straight
+        return None;
     }
 
     let mut values = cards.iter().map(|card| card.value).collect::<Vec<u8>>();
-    values.sort_unstable(); // Sắp xếp các giá trị
-    values.dedup(); // Loại bỏ các giá trị trùng lặp
+    values.sort_unstable();
+    values.dedup();
 
-    // Xử lý trường hợp đặc biệt A-2-3-4-5
     let has_high_ace = values.contains(&14);
     if has_high_ace {
-        values.insert(0, 1); // Thêm Ace với giá trị là 1 vào đầu mảng để giữ thứ tự sau khi sắp xếp
+        values.insert(0, 1);
     }
 
     let mut consecutive_count = 1;
@@ -292,7 +270,6 @@ fn check_straight(cards: &[Card]) -> Option<Vec<u8>> {
         if values[i] + 1 == values[i + 1] {
             consecutive_count += 1;
             if consecutive_count >= 5 {
-                // Thêm giá trị cao nhất của Straight hiện tại vào vector
                 straight_values.push(values[i + 1]);
             }
         } else {
@@ -302,9 +279,9 @@ fn check_straight(cards: &[Card]) -> Option<Vec<u8>> {
 
     if straight_values.len() > 0 {
         straight_values.sort_by(|a, b| b.cmp(&a));
-        Some(straight_values) // Trả về vector các giá trị Straight
+        Some(straight_values)
     } else {
-        None // Không tìm thấy Straight
+        None
     }
 }
 
@@ -385,7 +362,7 @@ mod tests {
             Card { value: 11, suit: 0 },
             Card { value: 12, suit: 0 },
             Card { value: 13, suit: 0 },
-            Card { value: 14, suit: 0 }, // Ace
+            Card { value: 14, suit: 0 },
         ];
         assert_eq!(check_straight(&cards), Some(vec![14]));
     }
@@ -397,7 +374,7 @@ mod tests {
             Card { value: 3, suit: 0 },
             Card { value: 4, suit: 0 },
             Card { value: 5, suit: 0 },
-            Card { value: 14, suit: 0 }, // Ace
+            Card { value: 14, suit: 0 },
         ];
         assert_eq!(check_straight(&cards), Some(vec![5]));
     }
@@ -703,10 +680,10 @@ mod tests {
             Card { value: 11, suit: 1 },
             Card { value: 12, suit: 2 },
             Card { value: 13, suit: 3 },
-            Card { value: 14, suit: 0 }, // Ace
+            Card { value: 14, suit: 0 },
             Card { value: 2, suit: 1 },
         ];
-        assert_eq!(check_straight(&cards), Some(vec![14])); // Ace as High
+        assert_eq!(check_straight(&cards), Some(vec![14]));
     }
 
     #[test]
@@ -735,7 +712,7 @@ mod tests {
         assert_eq!(
             check_multiples(&cards),
             (None, vec![], vec![6], vec![5, 4, 3, 2])
-        ); //Only check the pair
+        );
     }
 
     #[test]
@@ -753,7 +730,6 @@ mod tests {
         assert_eq!(evaluate_hand(&cards1, &boards), HandRank::FullHouse(2, 3));
         assert_eq!(evaluate_hand(&cards2, &boards), HandRank::FullHouse(3, 2));
 
-        // Test comparison when both are Full Houses
         assert_eq!(
             compare_hands(
                 evaluate_hand(&cards2, &boards),
@@ -765,7 +741,7 @@ mod tests {
 
     #[test]
     fn test_straight_flush_ace_low() {
-        let cards = [Card { value: 14, suit: 0 }, Card { value: 3, suit: 0 }]; //Ace
+        let cards = [Card { value: 14, suit: 0 }, Card { value: 3, suit: 0 }];
         let boards = [
             Card { value: 4, suit: 0 },
             Card { value: 5, suit: 0 },
@@ -777,7 +753,7 @@ mod tests {
 
     #[test]
     fn test_straight_ace_low() {
-        let cards = [Card { value: 14, suit: 0 }, Card { value: 3, suit: 0 }]; //Ace
+        let cards = [Card { value: 14, suit: 0 }, Card { value: 3, suit: 0 }];
         let boards = [
             Card { value: 4, suit: 0 },
             Card { value: 5, suit: 0 },
@@ -789,7 +765,7 @@ mod tests {
 
     #[test]
     fn test_straight_flush_1() {
-        let cards = [Card { value: 8, suit: 0 }, Card { value: 8, suit: 1 }]; //Ace
+        let cards = [Card { value: 8, suit: 0 }, Card { value: 8, suit: 1 }];
         let boards = [
             Card { value: 9, suit: 0 },
             Card { value: 10, suit: 0 },
@@ -901,9 +877,7 @@ fn parse_cards(input: &str) -> Vec<Card> {
     input
         .split_whitespace()
         .filter_map(|card_str| {
-            // Sử dụng filter_map để loại bỏ các giá trị rỗng hoặc không hợp lệ
             if card_str.len() != 2 {
-                // Kiểm tra độ dài chuỗi để đảm bảo nó hợp lệ
                 None
             } else {
                 let bytes = card_str.as_bytes();
@@ -957,8 +931,8 @@ fn main() {
     let hand_input = matches.value_of("hand").unwrap();
     let board_input = matches.value_of("board").unwrap();
 
-    let hand_vec = parse_cards(hand_input); // Giả sử hàm parse_cards trả về Vec<Card>
-    let board_vec = parse_cards(board_input); // Giả sử hàm parse_cards trả về Vec<Card>
+    let hand_vec = parse_cards(hand_input);
+    let board_vec = parse_cards(board_input);
 
     if hand_vec.len() != 2 {
         panic!(
@@ -967,7 +941,7 @@ fn main() {
         );
     }
 
-    let hand_array = [hand_vec[0], hand_vec[1]]; // Chuyển đổi Vec<Card> thành [Card; 2]
+    let hand_array = [hand_vec[0], hand_vec[1]];
 
     for num_players in 2..=5 {
         let (win_rate, tie_rate, _) =
