@@ -2,7 +2,7 @@ use clap::{Arg, Command};
 use rand::seq::SliceRandom; // Sử dụng crate rand để xáo bài
 use rayon::prelude::*;
 
-use std::collections::HashMap;
+use std::{cmp::max, collections::HashMap};
 
 // Định nghĩa cấu trúc cho một lá bài và bàn tay
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -85,6 +85,7 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
 
     // 4. Check for Two Pair, One Pair, High Card
     match pairs.len() {
+        3 => HandRank::TwoPair(pairs[0], pairs[1], max(pairs[2], singles[0])),
         2 => HandRank::TwoPair(pairs[0], pairs[1], *singles.iter().max().unwrap()),
         1 => HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2]),
         _ => HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4]),
