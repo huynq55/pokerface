@@ -33,140 +33,63 @@ enum HandRank {
 // fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank { ... }
 // Hàm đánh giá bàn tay
 fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
-    // Kết hợp các lá bài trên tay và trên bàn
     let mut all_cards = hand.to_vec();
     all_cards.extend_from_slice(board);
-
-    // Sắp xếp các lá bài theo giá trị
     all_cards.sort_by(|a, b| a.value.cmp(&b.value));
 
-    // Kiểm tra các loại bàn tay khác nhau
-    let flush_cards = check_flush(&all_cards);
-    let straight_values = check_straight(&all_cards);
-    let (four, threes, pairs, singles) = check_multiples(&all_cards);
-
-    // Đánh giá loại bàn tay dựa trên kết quả kiểm tra
-    match (flush_cards, straight_values, four, threes, pairs, singles) {
-        (Some(flush_cards), Some(straight_values), _, _, _, _) => {
-            if straight_values.contains(&14) {
-                // Kiểm tra sự tồn tại của 10, J, Q, K, A
-                let has_royal_flush_cards = flush_cards.iter().any(|card| card.value == 14)
-                    && flush_cards.iter().any(|card| card.value == 13)
-                    && flush_cards.iter().any(|card| card.value == 12)
-                    && flush_cards.iter().any(|card| card.value == 11)
-                    && flush_cards.iter().any(|card| card.value == 10);
-
-                if has_royal_flush_cards {
-                    HandRank::RoyalFlush
-                } else {
-                    // Kiểm tra các Sảnh đồng chất khác (Straight Flush)
-                    for straight_value in straight_values.iter() {
-                        let values_to_check = if *straight_value == 5 {
-                            // Trường hợp đặc biệt - 5 4 3 2 14
-                            vec![5, 4, 3, 2, 14]
-                        } else {
-                            // Trường hợp bình thường
-                            vec![
-                                *straight_value,
-                                *straight_value - 1,
-                                *straight_value - 2,
-                                *straight_value - 3,
-                                *straight_value - 4,
-                            ]
-                        };
-
-                        if values_to_check
-                            .iter()
-                            .all(|value| flush_cards.iter().any(|card| card.value == *value))
-                        {
-                            return HandRank::StraightFlush(*straight_value);
-                        }
-                    }
-
-                    // Không tìm thấy Straight Flush - trả về Flush thông thường
-                    HandRank::Flush(
-                        flush_cards[0].value,
-                        flush_cards[1].value,
-                        flush_cards[2].value,
-                        flush_cards[3].value,
-                        flush_cards[4].value,
-                    )
-                }
+    // 1. Check for Straight Flush and Royal Flush
+    if let Some(flush_cards) = check_flush(&all_cards) {
+        let straight_values = check_straight(&flush_cards); // Only check for straight within flush suit
+        if let Some(straight_values) = straight_values {
+            if straight_values.contains(&14) && flush_cards.iter().any(|card| card.value == 10) {
+                return HandRank::RoyalFlush;
             } else {
-                // Kiểm tra các Sảnh đồng chất khác (Straight Flush)
-                for straight_value in straight_values.iter() {
-                    let values_to_check = if *straight_value == 5 {
-                        // Trường hợp đặc biệt - 5 4 3 2 14
-                        vec![5, 4, 3, 2, 14]
-                    } else {
-                        // Trường hợp bình thường
-                        vec![
-                            *straight_value,
-                            *straight_value - 1,
-                            *straight_value - 2,
-                            *straight_value - 3,
-                            *straight_value - 4,
-                        ]
-                    };
-
-                    if values_to_check
-                        .iter()
-                        .all(|value| flush_cards.iter().any(|card| card.value == *value))
-                    {
-                        return HandRank::StraightFlush(*straight_value);
-                    }
-                }
-
-                // Không tìm thấy Straight Flush - trả về Flush thông thường
-                HandRank::Flush(
-                    flush_cards[0].value,
-                    flush_cards[1].value,
-                    flush_cards[2].value,
-                    flush_cards[3].value,
-                    flush_cards[4].value,
-                )
+                return HandRank::StraightFlush(*straight_values.iter().max().unwrap());
             }
         }
-        (_, _, Some(four), threes, pairs, singles) => {
-            if threes.len() == 1 {
-                HandRank::FourOfAKind(four, threes[0])
-            } else if pairs.len() == 1 {
-                HandRank::FourOfAKind(four, max(pairs[0], singles[0]))
-            } else {
-                HandRank::FourOfAKind(four, *singles.iter().max().unwrap())
-            }
+        return HandRank::Flush(
+            flush_cards[0].value,
+            flush_cards[1].value,
+            flush_cards[2].value,
+            flush_cards[3].value,
+            flush_cards[4].value,
+        );
+    }
+
+    // 2. Check for Four of a Kind, Full House, Three of a Kind
+    let (fours, threes, pairs, singles) = check_multiples(&all_cards);
+
+    if let Some(four_value) = fours {
+        if threes.len() == 1 {
+            // Case 1: Four of a Kind and a Three of a Kind
+            return HandRank::FourOfAKind(four_value, threes[0]);
+        } else {
+            // Cases 2 and 3: Four of a Kind with remaining kickers
+            let potential_kickers = pairs.iter().copied().chain(singles.iter().copied());
+            let best_kicker = potential_kickers.max().unwrap_or(0);
+            return HandRank::FourOfAKind(four_value, best_kicker); 
         }
-        (flush_cards, straight_values, _, threes, pairs, singles) => {
-            if threes.len() == 2 {
-                HandRank::FullHouse(threes[0], threes[1])
-            } else if threes.len() == 1 && pairs.len() > 0 {
-                HandRank::FullHouse(threes[0], pairs[0])
-            } else if !flush_cards.is_none() {
-                let flush_cards = flush_cards.unwrap_or_else(|| Vec::new());
-                HandRank::Flush(
-                    flush_cards[0].value,
-                    flush_cards[1].value,
-                    flush_cards[2].value,
-                    flush_cards[3].value,
-                    flush_cards[4].value,
-                )
-            } else if !straight_values.is_none() {
-                let straight_values = straight_values.unwrap_or_else(|| Vec::new());
-                HandRank::Straight(straight_values[0])
-            } else if threes.len() == 1 {
-                HandRank::ThreeOfAKind(threes[0], singles[0], singles[1])
-            } else {
-                if pairs.len() == 3 {
-                    HandRank::TwoPair(pairs[0], pairs[1], max(pairs[2], singles[0]))
-                } else if pairs.len() == 2 {
-                    HandRank::TwoPair(pairs[0], pairs[1], *singles.iter().max().unwrap())
-                } else if pairs.len() == 1 {
-                    HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2])
-                } else {
-                    HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4])
-                }
-            }
-        }
+    } else if threes.len() == 2 || (threes.len() == 1 && pairs.len() >= 1) {
+        let full_house_values = if threes.len() == 2 {
+            threes
+        } else {
+            vec![threes[0], pairs[0]]
+        };
+        return HandRank::FullHouse(full_house_values[0], full_house_values[1]);
+    } else if threes.len() == 1 {
+        return HandRank::ThreeOfAKind(threes[0], singles[0], singles[1]);
+    }
+
+    // 3. Check for Straight
+    if let Some(straight_values) = check_straight(&all_cards) {
+        return HandRank::Straight(*straight_values.iter().max().unwrap());
+    }
+
+    // 4. Check for Two Pair, One Pair, High Card
+    match pairs.len() {
+        2 => HandRank::TwoPair(pairs[0], pairs[1], *singles.iter().max().unwrap()),
+        1 => HandRank::OnePair(pairs[0], singles[0], singles[1], singles[2]),
+        _ => HandRank::HighCard(singles[0], singles[1], singles[2], singles[3], singles[4]),
     }
 }
 
