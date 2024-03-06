@@ -30,7 +30,7 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
     all_cards.sort_by(|a, b| a.value.cmp(&b.value));
 
     if let Some(flush_cards) = check_flush(&all_cards) {
-        let straight_values = check_straight(&flush_cards); // Only check for straight within flush suit
+        let straight_values = check_straight(&flush_cards);
         if let Some(straight_values) = straight_values {
             if straight_values.contains(&14) && flush_cards.iter().any(|card| card.value == 10) {
                 return HandRank::RoyalFlush;
@@ -72,7 +72,6 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         return HandRank::Straight(*straight_values.iter().max().unwrap());
     }
 
-    // 4. Check for Two Pair, One Pair, High Card
     match pairs.len() {
         3 => HandRank::TwoPair(pairs[0], pairs[1], max(pairs[2], singles[0])),
         2 => HandRank::TwoPair(pairs[0], pairs[1], *singles.iter().max().unwrap()),
@@ -242,7 +241,7 @@ fn check_flush(cards: &[Card]) -> Option<Vec<Card>> {
         .collect();
 
     if flush_cards.len() >= 5 {
-        flush_cards.sort_by(|a, b| b.value.cmp(&a.value)); // Sắp xếp giảm dần theo giá trị
+        flush_cards.sort_by(|a, b| b.value.cmp(&a.value));
         Some(flush_cards)
     } else {
         None
