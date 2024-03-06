@@ -37,20 +37,29 @@ enum HandRank {
 }
 
 fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
+    // create a vector of all cards, sorted from highest to lowest by value
     let mut all_cards = hand.to_vec();
     all_cards.extend_from_slice(board);
-    all_cards.sort_by(|a, b| a.value.cmp(&b.value));
+    all_cards.sort_by(|a, b| b.value.cmp(&a.value));
 
+    // if there is a flush, check if there is a straight flush or royal flush or just a flush
     if let Some(flush_cards) = check_flush(&all_cards) {
         let straight_values = check_straight(&flush_cards);
+
+        // if there is a straight, check if it is a royal flush or straight flush
         if let Some(straight_values) = straight_values {
-            if straight_values.contains(&14) && flush_cards.iter().any(|card| card.value == 10) {
+            // if there is an high ace, return a royal flush
+            if straight_values.contains(&14) {
                 return HandRank::RoyalFlush;
+            // else if there is no high ace, return a straight flush
             } else {
                 return HandRank::StraightFlush(*straight_values.iter().max().unwrap());
             }
         }
+
+        // else if there is no straight, return a flush
         return HandRank::Flush(
+            // get the 5 highest cards of the flush
             flush_cards[0].value,
             flush_cards[1].value,
             flush_cards[2].value,
@@ -59,31 +68,39 @@ fn evaluate_hand(hand: &[Card], board: &[Card]) -> HandRank {
         );
     }
 
+    // handle FourofAKind, FullHouse, ThreeOfAKind
+    // get multiples of cards
     let (fours, threes, pairs, singles) = check_multiples(&all_cards);
 
+    // if there is a four of a kind, return a four of a kind
     if let Some(four_value) = fours {
+        // if there is a four of a kind and a triple, return a four of a kind with a kicker
         if threes.len() == 1 {
             return HandRank::FourOfAKind(four_value, threes[0]);
+        // else if there is a four of a kind and a pair and a single, or a four of a kind and 3 singles, return a four of a kind with a kicker
         } else {
             let potential_kickers = pairs.iter().copied().chain(singles.iter().copied());
             let best_kicker = potential_kickers.max().unwrap_or(0);
             return HandRank::FourOfAKind(four_value, best_kicker);
         }
+    // if there are two triples, or one triple and at least one pair, return a full house
     } else if threes.len() == 2 || (threes.len() == 1 && pairs.len() >= 1) {
-        let full_house_values = if threes.len() == 2 {
-            threes
+        if threes.len() == 2 {
+            return HandRank::FullHouse(threes[0], threes[1]);
         } else {
-            vec![threes[0], pairs[0]]
-        };
-        return HandRank::FullHouse(full_house_values[0], full_house_values[1]);
-    } else if threes.len() == 1 {
+            return HandRank::FullHouse(threes[0], pairs[0]);
+        }
+    // if there is a triple and four singles, return a three of a kind
+    } else if threes.len() == 1 && singles.len() == 4 {
         return HandRank::ThreeOfAKind(threes[0], singles[0], singles[1]);
     }
 
+    // if there is a straight, return a straight
     if let Some(straight_values) = check_straight(&all_cards) {
         return HandRank::Straight(*straight_values.iter().max().unwrap());
     }
 
+    // handle TwoPair, OnePair, HighCard
     match pairs.len() {
         3 => HandRank::TwoPair(pairs[0], pairs[1], max(pairs[2], singles[0])),
         2 => HandRank::TwoPair(pairs[0], pairs[1], *singles.iter().max().unwrap()),
