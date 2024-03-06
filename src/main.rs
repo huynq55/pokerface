@@ -435,7 +435,7 @@ fn check_straight(cards: &[Card]) -> Option<Vec<u8>> {
     }
 
     let mut consecutive_count = 1;
-    let mut straight_values: Vec<u8> = Vec::new();
+    let mut straight_values = Vec::new();
 
     for i in 0..values.len() - 1 {
         if values[i] + 1 == values[i + 1] {
