@@ -458,9 +458,10 @@ fn check_straight(cards: &[Card]) -> Option<Vec<u8>> {
 }
 
 fn check_multiples(cards: &[Card]) -> (Option<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
-    let mut counts = [0; 15]; // Mảng đếm từ 2 đến 14
+    let mut counts = HashMap::new();
+
     for card in cards {
-        counts[card.value as usize] += 1;
+        *counts.entry(card.value).or_insert(0) += 1;
     }
 
     let mut four = None;
@@ -468,20 +469,19 @@ fn check_multiples(cards: &[Card]) -> (Option<u8>, Vec<u8>, Vec<u8>, Vec<u8>) {
     let mut pairs = Vec::new();
     let mut singles = Vec::new();
 
-    for (value, &count) in counts.iter().enumerate() {
+    for (value, count) in counts {
         match count {
-            4 => four = Some(value as u8),
-            3 => three.push(value as u8),
-            2 => pairs.push(value as u8),
-            1 => singles.push(value as u8),
-            _ => (),
+            4 => four = Some(value),
+            3 => three.push(value),
+            2 => pairs.push(value),
+            1 => singles.push(value),
+            _ => unreachable!(),
         }
     }
 
-    // Sắp xếp giảm dần
-    three.sort_by(|a, b| b.cmp(a));
-    pairs.sort_by(|a, b| b.cmp(a));
-    singles.sort_by(|a, b| b.cmp(a));
+    three.sort_unstable_by(|a, b| b.cmp(a));
+    pairs.sort_unstable_by(|a, b| b.cmp(a));
+    singles.sort_unstable_by(|a, b| b.cmp(a));
 
     (four, three, pairs, singles)
 }
